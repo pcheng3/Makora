@@ -183,11 +183,6 @@ export default function ReviewSessionPage() {
         )
       );
 
-      // Check if we should trigger learning
-      const ratedCount = items.filter((i) => i.rating !== null || i.id === itemId).length;
-      if (ratedCount >= 5 && ratedCount % 5 === 0) {
-        triggerLearning();
-      }
     } catch {
       // silently fail — rating will be retried on next interaction
     }
@@ -450,7 +445,7 @@ export default function ReviewSessionPage() {
             </div>
           </div>
 
-          {ratedCount >= 5 && (
+          {ratedCount >= 1 && (
             <button
               onClick={triggerLearning}
               className="mt-6 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-md hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
