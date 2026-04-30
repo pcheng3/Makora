@@ -124,7 +124,20 @@ export default function HomePage() {
 
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <FolderOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/git/browse", { method: "POST" });
+                    const data = await res.json();
+                    if (data.path) selectRepo(data.path);
+                  } catch {}
+                }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors cursor-pointer"
+                title="Browse for repository"
+              >
+                <FolderOpen className="w-4 h-4" />
+              </button>
               <input
                 type="text"
                 value={repoPath}
