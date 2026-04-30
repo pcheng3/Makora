@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, GitBranch, Filter, Brain, Square, Terminal } from "lucide-react";
+import { Loader2, GitBranch, Filter, Brain, Square, Terminal, Gamepad2 } from "lucide-react";
 import ReviewItemCard from "@/components/review/ReviewItemCard";
+import GoblinRunner from "@/components/review/GoblinRunner";
 import type { Session, ReviewItemWithRating } from "@/lib/types";
 
 const REVIEW_QUIPS = [
@@ -68,6 +69,7 @@ export default function ReviewSessionPage() {
   const [quipIndex, setQuipIndex] = useState(() => Math.floor(Math.random() * REVIEW_QUIPS.length));
   const [activityLog, setActivityLog] = useState<{ tool: string; input: string }[]>([]);
   const [showActivity, setShowActivity] = useState(false);
+  const [showGame, setShowGame] = useState(false);
   const activityEndRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -310,13 +312,22 @@ export default function ReviewSessionPage() {
               <p className="text-xs italic text-[var(--muted)] transition-opacity duration-300">
                 {REVIEW_QUIPS[quipIndex]}
               </p>
-              <button
-                onClick={() => setShowActivity(!showActivity)}
-                className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-              >
-                <Terminal className="w-3 h-3" />
-                {showActivity ? "Hide" : "Show"} activity
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowActivity(!showActivity)}
+                  className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  <Terminal className="w-3 h-3" />
+                  {showActivity ? "Hide" : "Show"} activity
+                </button>
+                <button
+                  onClick={() => setShowGame(!showGame)}
+                  className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  <Gamepad2 className="w-3 h-3" />
+                  {showGame ? "Hide" : "Play"} game
+                </button>
+              </div>
             </div>
             {showActivity && (
               <div className="mt-2 bg-gray-900 rounded-md p-3 max-h-48 overflow-y-auto font-mono text-xs">
@@ -338,6 +349,8 @@ export default function ReviewSessionPage() {
             )}
           </div>
         )}
+
+        {isRunning && showGame && <GoblinRunner />}
 
         {/* Learning notification */}
         {learningStatus && (
