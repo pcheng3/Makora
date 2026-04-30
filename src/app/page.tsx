@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Play, Loader2, FolderOpen, Clock } from "lucide-react";
+import { GitBranch, Play, Loader2, FolderOpen, Clock, ShieldAlert } from "lucide-react";
 import type { SessionWithStats } from "@/lib/types";
 
 export default function HomePage() {
@@ -17,6 +17,8 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [recentSessions, setRecentSessions] = useState<SessionWithStats[]>([]);
   const [savedRepos, setSavedRepos] = useState<string[]>([]);
+  const [remoteUrl, setRemoteUrl] = useState("");
+  const [showItarModal, setShowItarModal] = useState(false);
 
   useEffect(() => {
     fetch("/api/reviews?limit=5")
@@ -54,6 +56,7 @@ export default function HomePage() {
       setBranch(data.currentBranch || "");
       setBaseBranch(data.defaultBranch || "main");
       setDefaultBranch(data.defaultBranch || "main");
+      setRemoteUrl(data.remoteUrl || "");
     } catch {
       setError("Failed to connect to git repository");
     } finally {
@@ -61,8 +64,7 @@ export default function HomePage() {
     }
   };
 
-  const startReview = async () => {
-    if (!repoPath || !branch || !baseBranch) return;
+  const doStartReview = async () => {
     setLoading(true);
     setError("");
     try {
@@ -82,6 +84,15 @@ export default function HomePage() {
       setError("Failed to start review");
       setLoading(false);
     }
+  };
+
+  const startReview = () => {
+    if (!repoPath || !branch || !baseBranch) return;
+    if (remoteUrl.includes("github-sec.washington.palantircloud.com")) {
+      setShowItarModal(true);
+      return;
+    }
+    doStartReview();
   };
 
   return (
@@ -243,6 +254,42 @@ export default function HomePage() {
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+      {showItarModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg p-6 max-w-md w-full shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h2 className="text-lg font-semibold">ITAR Repository Detected</h2>
+            </div>
+            <p className="text-sm text-[var(--muted)] mb-6">
+              This repository is hosted on <span className="font-mono text-[var(--foreground)]">github-sec</span> and
+              may contain ITAR-controlled content. Is your Claude Code configured for ITAR mode?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowItarModal(false);
+                  setError("Please switch Claude Code to ITAR mode before reviewing this repository.");
+                }}
+                className="flex-1 px-4 py-2 text-sm border border-[var(--card-border)] rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                No, cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowItarModal(false);
+                  doStartReview();
+                }}
+                className="flex-1 px-4 py-2 text-sm bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] transition-colors font-medium"
+              >
+                Yes, ITAR mode is active
+              </button>
+            </div>
           </div>
         </div>
       )}

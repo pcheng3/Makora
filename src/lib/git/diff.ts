@@ -21,10 +21,18 @@ export async function getRepoInfo(repoPath: string) {
   const branches = await git.branch();
   const defaultBranch = await detectDefaultBranch(git);
 
+  let remoteUrl: string | null = null;
+  try {
+    remoteUrl = (await git.remote(["get-url", "origin"]))?.trim() || null;
+  } catch {
+    // no remote configured
+  }
+
   return {
     currentBranch: branches.current,
     defaultBranch,
     branches: branches.all.filter((b) => !b.startsWith("remotes/")),
+    remoteUrl,
   };
 }
 
