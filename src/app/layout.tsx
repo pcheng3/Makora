@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Yubel - AI Code Review",
+  title: "Makora - AI Code Review",
   description: "AI-powered code review that learns from your feedback",
 };
 

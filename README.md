@@ -1,6 +1,8 @@
-# Yubel
+# Makora
 
-An AI code review app that learns from your feedback. Point it at a git repo, pick a branch, and get an AI-powered code review. Rate each finding with thumbs up/down, and Yubel learns your preferences to improve future reviews.
+Makora is an adaptive AI code reviewer that studies your feedback and evolves its review style over time — like Mahoraga, once it sees a pattern, it never misses it again.
+
+Point it at a git repo, pick a branch, and get an AI-powered code review. Rate each finding with thumbs up/down, and Makora learns your preferences to improve future reviews.
 
 ## Prerequisites
 
@@ -24,7 +26,7 @@ Open [http://localhost:3000](http://localhost:3000), enter a repo path, select b
 1. **Start a review** — Pick a repo, select the branch to review and the base branch to diff against
 2. **AI reviews the diff** — Claude analyzes the changes, producing findings with severity, code snippets, and suggested fixes
 3. **Rate findings** — Thumbs up for useful findings, thumbs down for unhelpful ones. Add optional comments explaining why.
-4. **Yubel learns** — After 5+ ratings, the learning pipeline extracts patterns into rules. Similar rules are automatically consolidated.
+4. **Makora learns** — After 5+ ratings, the learning pipeline extracts patterns into rules. Similar rules are automatically consolidated.
 5. **Future reviews improve** — Learned rules and few-shot examples are injected into subsequent review prompts
 
 ## Project Structure
@@ -58,7 +60,7 @@ src/
 Export your learned rules as JSON and share them with your team:
 
 1. Go to **Settings > Learned Rules**
-2. Click **Export** to download `yubel-rules.json`
+2. Click **Export** to download `makora-rules.json`
 3. Share the file — others click **Import** to load your rules
 
 Imported rules are deduplicated by title, so re-importing the same file is safe.

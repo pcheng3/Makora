@@ -18,7 +18,7 @@ export default function Sidebar() {
       <div className="p-4 border-b border-white/10">
         <Link href="/" className="flex items-center gap-2 text-white font-semibold text-lg">
           <FileSearch className="w-5 h-5" />
-          Yubel
+          Makora
         </Link>
       </div>
       <nav className="flex-1 p-3 space-y-1">
