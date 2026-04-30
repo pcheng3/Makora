@@ -126,6 +126,6 @@ export interface ReviewResult {
 }
 
 export interface SSEEvent {
-  type: "status" | "item" | "progress" | "complete" | "error" | "cancelled";
+  type: "status" | "item" | "progress" | "complete" | "error" | "cancelled" | "activity";
   data: Record<string, unknown>;
 }

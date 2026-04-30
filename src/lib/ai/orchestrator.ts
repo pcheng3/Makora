@@ -134,7 +134,9 @@ export async function runReview(sessionId: number, repoPath: string, branch: str
         branch,
         baseBranch,
         systemPrompt,
-      }, controller.signal);
+      }, controller.signal, (activity) => {
+        emitSSE(sessionId, "activity", activity);
+      });
 
       if (i === 0 && result.summary) {
         const summaryId = insertReviewItem(sessionId, i, {

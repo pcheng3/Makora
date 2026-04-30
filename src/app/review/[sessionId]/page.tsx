@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, GitBranch, Filter, Brain, Square } from "lucide-react";
+import { Loader2, GitBranch, Filter, Brain, Square, Terminal } from "lucide-react";
 import ReviewItemCard from "@/components/review/ReviewItemCard";
 import type { Session, ReviewItemWithRating } from "@/lib/types";
 
@@ -66,6 +66,9 @@ export default function ReviewSessionPage() {
   const [learningStatus, setLearningStatus] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [quipIndex, setQuipIndex] = useState(() => Math.floor(Math.random() * REVIEW_QUIPS.length));
+  const [activityLog, setActivityLog] = useState<{ tool: string; input: string }[]>([]);
+  const [showActivity, setShowActivity] = useState(false);
+  const activityEndRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const fetchSession = useCallback(async () => {
@@ -110,6 +113,11 @@ export default function ReviewSessionPage() {
       setProgress(JSON.parse(e.data));
     });
 
+    es.addEventListener("activity", (e) => {
+      const data = JSON.parse(e.data);
+      setActivityLog((prev) => [...prev.slice(-49), data]);
+    });
+
     es.addEventListener("complete", () => {
       setSession((prev) => prev ? { ...prev, status: "completed" } : prev);
       es.close();
@@ -132,6 +140,12 @@ export default function ReviewSessionPage() {
 
     return () => es.close();
   }, [session?.status, sessionId]);
+
+  useEffect(() => {
+    if (showActivity && activityEndRef.current) {
+      activityEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [activityLog, showActivity]);
 
   useEffect(() => {
     if (!session || (session.status !== "pending" && session.status !== "running")) return;
@@ -262,6 +276,13 @@ export default function ReviewSessionPage() {
           </p>
         </div>
 
+        {/* Error message for failed reviews */}
+        {session.status === "failed" && session.error_message && (
+          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
+            {session.error_message}
+          </div>
+        )}
+
         {/* Progress bar during review */}
         {isRunning && (
           <div className="mb-6 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg p-4">
@@ -290,9 +311,36 @@ export default function ReviewSessionPage() {
             <p className="text-xs text-[var(--muted)] mt-1">
               {progress.chunksCompleted}/{progress.chunksTotal} chunks | {progress.itemsFound} findings so far
             </p>
-            <p className="text-xs italic text-[var(--muted)] mt-3 transition-opacity duration-300">
-              {REVIEW_QUIPS[quipIndex]}
-            </p>
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-xs italic text-[var(--muted)] transition-opacity duration-300">
+                {REVIEW_QUIPS[quipIndex]}
+              </p>
+              <button
+                onClick={() => setShowActivity(!showActivity)}
+                className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              >
+                <Terminal className="w-3 h-3" />
+                {showActivity ? "Hide" : "Show"} activity
+              </button>
+            </div>
+            {showActivity && (
+              <div className="mt-2 bg-gray-900 rounded-md p-3 max-h-48 overflow-y-auto font-mono text-xs">
+                {activityLog.length === 0 ? (
+                  <div className="text-gray-500 flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Waiting for Claude to start...
+                  </div>
+                ) : (
+                  activityLog.map((entry, i) => (
+                    <div key={i} className="flex gap-2 py-0.5">
+                      <span className="text-blue-400 shrink-0 w-12">{entry.tool}</span>
+                      <span className="text-gray-300 truncate">{entry.input}</span>
+                    </div>
+                  ))
+                )}
+                <div ref={activityEndRef} />
+              </div>
+            )}
           </div>
         )}
 
