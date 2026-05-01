@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { History, Settings, Home } from "lucide-react";
+import { History, Settings, Home, Brain } from "lucide-react";
 
 function MakoraLogo({ className }: { className?: string }) {
   const cx = 12, cy = 12, hub = 2, rim = 7.5, orbDist = 10, orb = 1.5;
@@ -32,6 +32,7 @@ function MakoraLogo({ className }: { className?: string }) {
 const navItems = [
   { href: "/", label: "New Review", icon: Home },
   { href: "/history", label: "History", icon: History },
+  { href: "/rules", label: "Rules", icon: Brain },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -41,9 +42,9 @@ export default function Sidebar() {
   return (
     <aside className="w-56 shrink-0 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] flex flex-col">
       <div className="p-4 border-b border-white/10">
-        <Link href="/" className="flex items-center gap-2 text-white font-semibold text-lg">
+        <Link href="/" className="flex items-center gap-2 text-white text-xl">
           <MakoraLogo className="w-8 h-8" />
-          Makora
+          <span className="font-[family-name:var(--font-righteous)] tracking-wide">Makora</span>
         </Link>
       </div>
       <nav className="flex-1 p-3 space-y-1">
