@@ -65,6 +65,7 @@ export default function ReviewSessionPage() {
   const [filterSeverity, setFilterSeverity] = useState<FilterSeverity>("all");
   const [filterRating, setFilterRating] = useState<FilterRating>("all");
   const [learningStatus, setLearningStatus] = useState("");
+  const [isLearningActive, setIsLearningActive] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [quipIndex, setQuipIndex] = useState(() => Math.floor(Math.random() * REVIEW_QUIPS.length));
   const [activityLog, setActivityLog] = useState<{ tool: string; input: string }[]>([]);
@@ -72,6 +73,7 @@ export default function ReviewSessionPage() {
   const [showGame, setShowGame] = useState(false);
   const activityEndRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const learningPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -161,6 +163,40 @@ export default function ReviewSessionPage() {
     return () => clearInterval(interval);
   }, [session?.status]);
 
+  const startLearningPoll = useCallback(() => {
+    if (learningPollRef.current) clearInterval(learningPollRef.current);
+    learningPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/learn/status?sessionId=${sessionId}`);
+        const data = await res.json();
+        if (!data.isLearning) {
+          if (learningPollRef.current) clearInterval(learningPollRef.current);
+          learningPollRef.current = null;
+          setIsLearningActive(false);
+          setLearningStatus("");
+        }
+      } catch { /* ignore */ }
+    }, 2000);
+  }, [sessionId]);
+
+  useEffect(() => {
+    const checkLearningStatus = async () => {
+      try {
+        const res = await fetch(`/api/learn/status?sessionId=${sessionId}`);
+        const data = await res.json();
+        if (data.isLearning) {
+          setIsLearningActive(true);
+          setLearningStatus("Learning from your feedback...");
+          startLearningPoll();
+        }
+      } catch { /* ignore */ }
+    };
+    checkLearningStatus();
+    return () => {
+      if (learningPollRef.current) clearInterval(learningPollRef.current);
+    };
+  }, [sessionId, startLearningPoll]);
+
   const handleRate = async (itemId: number, rating: 1 | -1, comment?: string) => {
     try {
       await fetch("/api/ratings", {
@@ -200,9 +236,18 @@ export default function ReviewSessionPage() {
   };
 
   const triggerLearning = async () => {
+    setIsLearningActive(true);
     setLearningStatus("Learning from your feedback...");
     try {
-      const res = await fetch("/api/learn", { method: "POST" });
+      const res = await fetch("/api/learn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: parseInt(sessionId) }),
+      });
+      if (res.status === 409) {
+        startLearningPoll();
+        return;
+      }
       const data = await res.json();
       const parts: string[] = [];
       if (data.rulesCreated > 0) parts.push(`Created ${data.rulesCreated} new rule(s)`);
@@ -210,12 +255,13 @@ export default function ReviewSessionPage() {
       if (parts.length > 0) {
         setLearningStatus(parts.join(", "));
       } else {
-        setLearningStatus("");
+        setLearningStatus(data.message || "");
       }
+      setTimeout(() => setLearningStatus(""), 5000);
     } catch {
       setLearningStatus("");
     }
-    setTimeout(() => setLearningStatus(""), 5000);
+    setIsLearningActive(false);
   };
 
   const filteredItems = items.filter((item) => {
@@ -461,10 +507,15 @@ export default function ReviewSessionPage() {
           {ratedCount >= 1 && (
             <button
               onClick={triggerLearning}
-              className="mt-6 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-md hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+              disabled={isLearningActive}
+              className="mt-6 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-md hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Brain className="w-3.5 h-3.5" />
-              Learn from Ratings
+              {isLearningActive ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Brain className="w-3.5 h-3.5" />
+              )}
+              {isLearningActive ? "Learning..." : "Learn from Ratings"}
             </button>
           )}
         </div>

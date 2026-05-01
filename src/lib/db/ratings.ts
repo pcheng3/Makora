@@ -21,8 +21,20 @@ export function upsertRating(data: {
     .get(data.review_item_id) as Rating;
 }
 
-export function getUnprocessedRatings() {
+export function getUnprocessedRatings(sessionId?: number) {
   const db = getDb();
+  if (sessionId !== undefined) {
+    return db
+      .prepare(
+        `SELECT r.*, ri.category, ri.severity, ri.title as item_title, ri.description as item_description,
+                ri.code_snippet as item_code_snippet, ri.file_path as item_file_path, ri.proposed_fix as item_proposed_fix
+         FROM ratings r
+         JOIN review_items ri ON r.review_item_id = ri.id
+         WHERE r.id NOT IN (SELECT rating_id FROM rule_source_ratings)
+           AND ri.session_id = ?`
+      )
+      .all(sessionId);
+  }
   return db
     .prepare(
       `SELECT r.*, ri.category, ri.severity, ri.title as item_title, ri.description as item_description,

@@ -19,11 +19,11 @@ interface RatingWithItem {
   severity: string | null;
 }
 
-export async function runLearningPipeline() {
-  const unprocessed = getUnprocessedRatings() as RatingWithItem[];
+export async function runLearningPipeline(sessionId: number) {
+  const unprocessed = getUnprocessedRatings(sessionId) as RatingWithItem[];
 
-  if (unprocessed.length < 3) {
-    return { rulesCreated: 0, rulesUpdated: 0, message: "Not enough unprocessed ratings (need at least 3)" };
+  if (unprocessed.length < 1) {
+    return { rulesCreated: 0, rulesUpdated: 0, message: "No unprocessed ratings for this session" };
   }
 
   const thumbsDown = unprocessed.filter((r) => r.rating === -1);
