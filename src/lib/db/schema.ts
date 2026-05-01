@@ -134,6 +134,22 @@ function runMigrations(db: Database.Database) {
     db.exec("ALTER TABLE review_items ADD COLUMN viewed INTEGER DEFAULT 0");
   }
 
+  const prTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='pr_comments'").get();
+  if (!prTables) {
+    db.exec(`
+      CREATE TABLE pr_comments (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        review_item_id  INTEGER NOT NULL REFERENCES review_items(id) ON DELETE CASCADE,
+        pr_number       INTEGER NOT NULL,
+        pr_comment_id   INTEGER,
+        comment_url     TEXT,
+        comment_body    TEXT NOT NULL,
+        posted_at       TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX idx_pr_comments_review_item ON pr_comments(review_item_id);
+    `);
+  }
+
   const rsrCols = db.pragma("table_info(rule_source_ratings)") as { name: string }[];
   if (!rsrCols.some((c) => c.name === "learned_rating")) {
     db.exec("ALTER TABLE rule_source_ratings ADD COLUMN learned_rating INTEGER");

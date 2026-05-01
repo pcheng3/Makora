@@ -88,9 +88,20 @@ export interface GuidanceFile {
   created_at: string;
 }
 
+export interface PRComment {
+  id: number;
+  review_item_id: number;
+  pr_number: number;
+  pr_comment_id: number | null;
+  comment_url: string | null;
+  comment_body: string;
+  posted_at: string;
+}
+
 export interface ReviewItemWithRating extends ReviewItem {
   rating: Rating | null;
   comments: Comment[];
+  prComment: PRComment | null;
 }
 
 export interface SessionWithStats extends Session {

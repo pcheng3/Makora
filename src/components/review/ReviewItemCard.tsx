@@ -1,11 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { FileCode, ChevronDown, ChevronRight } from "lucide-react";
+import { FileCode, ChevronDown, ChevronRight, GitPullRequest, ExternalLink, Check } from "lucide-react";
 import SeverityBadge from "./SeverityBadge";
 import RatingButtons, { CommentPanel } from "./RatingControls";
 import DiffSnippet from "./DiffSnippet";
-import type { ReviewItemWithRating } from "@/lib/types";
+import PostToPRDialog from "./PostToPRDialog";
+import type { ReviewItemWithRating, PRComment } from "@/lib/types";
+
+export interface PRInfo {
+  number: number;
+  url: string;
+  commitId: string;
+}
 
 interface ReviewItemCardProps {
   item: ReviewItemWithRating;
@@ -13,11 +20,15 @@ interface ReviewItemCardProps {
   onAddComment: (itemId: number, text: string) => void;
   onDeleteComment: (itemId: number, commentId: number) => void;
   onToggleViewed: (itemId: number, viewed: boolean) => void;
+  prInfo?: PRInfo | null;
+  repoPath?: string;
+  onPRCommentPosted?: (itemId: number, prComment: PRComment) => void;
 }
 
-export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteComment, onToggleViewed }: ReviewItemCardProps) {
+export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteComment, onToggleViewed, prInfo, repoPath, onPRCommentPosted }: ReviewItemCardProps) {
   const [showFix, setShowFix] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showPostDialog, setShowPostDialog] = useState(false);
 
   const ratingValue = item.rating?.rating ?? null;
   const borderColor =
@@ -95,6 +106,34 @@ export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteCom
             onToggleComments={() => setShowComments(!showComments)}
             onRate={handleRate}
           />
+          {prInfo && (
+            item.prComment ? (
+              <a
+                href={item.prComment.comment_url ?? prInfo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                title="View comment on GitHub"
+              >
+                <Check className="w-3 h-3" />
+                Posted
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <button
+                onClick={() => setShowPostDialog(!showPostDialog)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                  showPostDialog
+                    ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                    : "text-[var(--muted)] hover:bg-gray-100 dark:hover:bg-gray-800 border border-[var(--card-border)]"
+                }`}
+                title={`Post to PR #${prInfo.number}`}
+              >
+                <GitPullRequest className="w-3.5 h-3.5" />
+                Post to PR
+              </button>
+            )
+          )}
         </div>
       </div>
 
@@ -103,6 +142,17 @@ export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteCom
           comments={item.comments}
           onAddComment={(text) => onAddComment(item.id, text)}
           onDeleteComment={(commentId) => onDeleteComment(item.id, commentId)}
+        />
+      )}
+
+      {showPostDialog && prInfo && repoPath && onPRCommentPosted && (
+        <PostToPRDialog
+          item={item}
+          prNumber={prInfo.number}
+          commitId={prInfo.commitId}
+          repoPath={repoPath}
+          onClose={() => setShowPostDialog(false)}
+          onPosted={(prComment) => onPRCommentPosted(item.id, prComment)}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { getDb } from "./connection";
 import type { ReviewItem, ReviewItemWithRating, AIReviewItem, Comment } from "../types";
 import { getSessionComments } from "./comments";
+import { getSessionPRComments } from "./pr-comments";
 
 export function insertReviewItem(
   sessionId: number,
@@ -45,6 +46,7 @@ export function getSessionItems(
     )
     .all(sessionId) as Record<string, unknown>[];
   const commentsByItem = getSessionComments(sessionId);
+  const prCommentsByItem = getSessionPRComments(sessionId);
 
   return rows.map((row) => ({
       id: row.id as number,
@@ -72,6 +74,7 @@ export function getSessionItems(
           }
         : null,
       comments: commentsByItem.get(row.id as number) || [],
+      prComment: prCommentsByItem.get(row.id as number) ?? null,
     }));
 }
 

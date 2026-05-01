@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import { Loader2, GitBranch, Filter, Brain, Square, Terminal, Gamepad2, CheckCircle2 } from "lucide-react";
 import ReviewItemCard from "@/components/review/ReviewItemCard";
 import GoblinRunner from "@/components/review/GoblinRunner";
-import type { Session, ReviewItemWithRating } from "@/lib/types";
+import type { Session, ReviewItemWithRating, PRComment } from "@/lib/types";
+import type { PRInfo } from "@/components/review/ReviewItemCard";
 
 const REVIEW_QUIPS = [
   "Judging your variable names...",
@@ -78,6 +79,8 @@ export default function ReviewSessionPage() {
   const [activityLog, setActivityLog] = useState<{ tool: string; input: string }[]>([]);
   const [showActivity, setShowActivity] = useState(false);
   const [showGame, setShowGame] = useState(false);
+  const [prInfo, setPrInfo] = useState<PRInfo | null>(null);
+  const [prLoading, setPrLoading] = useState(false);
   const activityEndRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const learningPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -102,6 +105,18 @@ export default function ReviewSessionPage() {
   }, [fetchSession]);
 
   useEffect(() => {
+    if (!session) return;
+    setPrLoading(true);
+    fetch(`/api/github/pr-info?repoPath=${encodeURIComponent(session.repo_path)}&branch=${session.branch}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.pr) setPrInfo(data.pr);
+      })
+      .catch(() => {})
+      .finally(() => setPrLoading(false));
+  }, [session?.repo_path, session?.branch]);
+
+  useEffect(() => {
     if (!session || session.status === "completed" || session.status === "failed" || session.status === "cancelled") return;
 
     if (Notification.permission === "default") {
@@ -120,7 +135,7 @@ export default function ReviewSessionPage() {
       const newItem = JSON.parse(e.data);
       setItems((prev) => [
         ...prev,
-        { ...newItem, rating: null, comments: [], viewed: false, created_at: new Date().toISOString() } as ReviewItemWithRating,
+        { ...newItem, rating: null, comments: [], prComment: null, viewed: false, created_at: new Date().toISOString() } as ReviewItemWithRating,
       ]);
     });
 
@@ -318,6 +333,14 @@ export default function ReviewSessionPage() {
     }
   };
 
+  const handlePRCommentPosted = (itemId: number, prComment: PRComment) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, prComment } : item
+      )
+    );
+  };
+
   const triggerLearning = async () => {
     setIsLearningActive(true);
     setLearningStatus("Learning from your feedback...");
@@ -400,6 +423,25 @@ export default function ReviewSessionPage() {
             >
               {session.status}
             </span>
+            {prLoading ? (
+              <span className="flex items-center gap-1 text-xs text-[var(--muted)]">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Checking PR...
+              </span>
+            ) : prInfo ? (
+              <a
+                href={prInfo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+              >
+                PR #{prInfo.number}
+              </a>
+            ) : (
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500">
+                No PR
+              </span>
+            )}
           </div>
           <p className="text-sm text-[var(--muted)]">
             {session.repo_path}
@@ -542,6 +584,9 @@ export default function ReviewSessionPage() {
               onAddComment={handleAddComment}
               onDeleteComment={handleDeleteComment}
               onToggleViewed={handleToggleViewed}
+              prInfo={prInfo}
+              repoPath={session.repo_path}
+              onPRCommentPosted={handlePRCommentPosted}
             />
           ))}
         </div>
