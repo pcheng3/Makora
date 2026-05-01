@@ -61,7 +61,7 @@ export function formatReviewItemAsComment(
 
   lines.push("");
   lines.push("---");
-  lines.push("*Posted via Makora code review*");
+  lines.push("*Posted via Mahoraga code review*");
 
   return lines.join("\n");
 }

@@ -32,7 +32,7 @@ export function GET() {
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {
       "Content-Type": "application/json",
-      "Content-Disposition": 'attachment; filename="makora-rules.json"',
+      "Content-Disposition": 'attachment; filename="mahoraga-rules.json"',
     },
   });
 }

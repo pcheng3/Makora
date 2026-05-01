@@ -20,7 +20,7 @@ const righteous = Righteous({
 });
 
 export const metadata: Metadata = {
-  title: "Makora - AI Code Review",
+  title: "Mahoraga - AI Code Review",
   description: "AI-powered code review that learns from your feedback",
 };
 

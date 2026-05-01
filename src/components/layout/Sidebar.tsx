@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { History, Settings, Home, Brain } from "lucide-react";
 
-function MakoraLogo({ className }: { className?: string }) {
+function MahoragaLogo({ className }: { className?: string }) {
   const cx = 12, cy = 12, hub = 2, rim = 7.5, orbDist = 10, orb = 1.5;
   const points = Array.from({ length: 8 }, (_, i) => {
     const a = (i * Math.PI) / 4;
@@ -43,8 +43,8 @@ export default function Sidebar() {
     <aside className="w-56 shrink-0 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] flex flex-col">
       <div className="p-4 border-b border-white/10">
         <Link href="/" className="flex items-center gap-2 text-white text-xl">
-          <MakoraLogo className="w-8 h-8" />
-          <span className="font-[family-name:var(--font-righteous)] tracking-wide">Makora</span>
+          <MahoragaLogo className="w-8 h-8" />
+          <span className="font-[family-name:var(--font-righteous)] tracking-wide">Mahoraga</span>
         </Link>
       </div>
       <nav className="flex-1 p-3 space-y-1">

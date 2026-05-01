@@ -1,4 +1,4 @@
-# Makora
+# Mahoraga
 
 AI-powered code review web app with human-in-the-loop learning. Reviews git diffs via Claude CLI, lets users rate each finding (thumbs up/down + optional comment), and learns from feedback to improve future reviews.
 
