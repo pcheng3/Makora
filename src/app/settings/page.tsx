@@ -15,10 +15,11 @@ import {
   Check,
   CheckCircle,
   XCircle,
+  Info,
 } from "lucide-react";
 import type { GuidanceFile } from "@/lib/types";
 
-type Tab = "guidance" | "filters" | "provider";
+type Tab = "guidance" | "filters" | "provider" | "version";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("guidance");
@@ -43,13 +44,23 @@ export default function SettingsPage() {
   const [claudeVerified, setClaudeVerified] = useState(false);
   const [foundryVerified, setFoundryVerified] = useState(false);
 
+  // Version info
+  const [versionInfo, setVersionInfo] = useState<{
+    branch: string;
+    versionLabel: string;
+    localHash: string;
+    commitsBehind: number;
+    available: boolean;
+  } | null>(null);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/guidance").then((r) => r.json()),
       fetch("/api/settings/skip-extensions").then((r) => r.json()),
       fetch("/api/settings/provider").then((r) => r.json()),
+      fetch("/api/version").then((r) => r.json()).catch(() => null),
     ])
-      .then(([guidanceData, skipData, providerData]) => {
+      .then(([guidanceData, skipData, providerData, versionData]) => {
         setGuidance(guidanceData.files || []);
         setSkipExtensions(skipData.extensions || []);
         setProviderType(providerData.provider || "claude");
@@ -58,6 +69,7 @@ export default function SettingsPage() {
         setHasToken(providerData.hasToken || false);
         setClaudeVerified(providerData.claudeVerified || false);
         setFoundryVerified(providerData.foundryVerified || false);
+        if (versionData) setVersionInfo(versionData);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -212,6 +224,17 @@ export default function SettingsPage() {
         >
           <Cpu className="w-4 h-4" />
           AI Provider
+        </button>
+        <button
+          onClick={() => setTab("version")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "version"
+              ? "border-[var(--accent)] text-[var(--accent)]"
+              : "border-transparent text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          <Info className="w-4 h-4" />
+          Version
         </button>
       </div>
 
@@ -489,6 +512,56 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Version tab */}
+      {tab === "version" && (
+        <div>
+          {versionInfo ? (
+            <div className="space-y-4">
+              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--muted)]">Version</span>
+                  <span className="text-sm font-mono font-semibold">{versionInfo.versionLabel}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--muted)]">Branch</span>
+                  <span className="text-sm font-mono">{versionInfo.branch || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--muted)]">Commit</span>
+                  <span className="text-sm font-mono">{versionInfo.localHash || "—"}</span>
+                </div>
+              </div>
+
+              {versionInfo.available && (
+                <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                  <Info className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-300">
+                      Update available
+                    </p>
+                    <p className="text-xs text-amber-300/70 mt-1">
+                      {versionInfo.commitsBehind} commit{versionInfo.commitsBehind !== 1 ? "s" : ""} behind origin/main.
+                      Run <code className="px-1.5 py-0.5 bg-amber-500/20 rounded text-xs font-mono">git pull</code> to update.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!versionInfo.available && versionInfo.branch && (
+                <p className="text-sm text-green-500 flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4" />
+                  Up to date
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--muted)]">
+              Version info unavailable — this install may not be a git repository.
+            </p>
+          )}
         </div>
       )}
 

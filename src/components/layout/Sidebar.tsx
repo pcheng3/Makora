@@ -1,8 +1,11 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { History, Settings, Home, Brain } from "lucide-react";
+import { History, Settings, Home, Brain, ArrowUpCircle } from "lucide-react";
+
+const POLL_INTERVAL_MS = 15 * 60 * 1000;
 
 function MahoragaLogo({ className }: { className?: string }) {
   const cx = 12, cy = 12, hub = 2, rim = 7.5, orbDist = 10, orb = 1.5;
@@ -38,6 +41,20 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [commitsBehind, setCommitsBehind] = useState(0);
+
+  const fetchVersion = useCallback(() => {
+    fetch("/api/version")
+      .then((r) => r.json())
+      .then((data) => setCommitsBehind(data.commitsBehind ?? 0))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchVersion();
+    const id = setInterval(fetchVersion, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [fetchVersion]);
 
   return (
     <aside className="w-56 shrink-0 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] flex flex-col">
@@ -69,6 +86,19 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {commitsBehind > 0 && (
+          <div className="px-3 py-2 mt-1">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/15 text-amber-300 text-xs">
+              <ArrowUpCircle className="w-4 h-4 shrink-0" />
+              <span>
+                Update available
+                <span className="block text-[10px] text-amber-300/70 mt-0.5">
+                  {commitsBehind} commit{commitsBehind !== 1 ? "s" : ""} behind &middot; run git pull
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
       </nav>
     </aside>
   );
