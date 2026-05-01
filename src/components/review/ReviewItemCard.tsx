@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FileCode, ChevronDown, ChevronRight } from "lucide-react";
 import SeverityBadge from "./SeverityBadge";
-import RatingControls from "./RatingControls";
+import RatingButtons, { CommentPanel } from "./RatingControls";
 import DiffSnippet from "./DiffSnippet";
 import type { ReviewItemWithRating } from "@/lib/types";
 
@@ -17,6 +17,7 @@ interface ReviewItemCardProps {
 
 export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteComment, onToggleViewed }: ReviewItemCardProps) {
   const [showFix, setShowFix] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const ratingValue = item.rating?.rating ?? null;
   const borderColor =
@@ -34,6 +35,13 @@ export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteCom
       </div>
     );
   }
+
+  const handleRate = (rating: 1 | -1) => {
+    onRate(item.id, rating);
+    if (item.comments.length === 0 && !showComments) {
+      setShowComments(true);
+    }
+  };
 
   return (
     <div
@@ -80,16 +88,23 @@ export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteCom
                 : "text-[var(--muted)]"
             }`}>Viewed</span>
           </label>
-          <RatingControls
-          reviewItemId={item.id}
-          currentRating={ratingValue as 1 | -1 | null}
+          <RatingButtons
+            currentRating={ratingValue as 1 | -1 | null}
+            commentCount={item.comments.length}
+            showComments={showComments}
+            onToggleComments={() => setShowComments(!showComments)}
+            onRate={handleRate}
+          />
+        </div>
+      </div>
+
+      {showComments && (
+        <CommentPanel
           comments={item.comments}
-          onRate={(rating) => onRate(item.id, rating)}
           onAddComment={(text) => onAddComment(item.id, text)}
           onDeleteComment={(commentId) => onDeleteComment(item.id, commentId)}
         />
-        </div>
-      </div>
+      )}
 
       {item.code_snippet && (
         <div className="mt-3">
@@ -119,6 +134,7 @@ export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteCom
           )}
         </div>
       )}
+
     </div>
   );
 }
