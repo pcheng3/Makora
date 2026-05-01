@@ -52,9 +52,11 @@ export default function SettingsPage() {
   const [hasToken, setHasToken] = useState(false);
   const [providerSaving, setProviderSaving] = useState(false);
   const [providerSaved, setProviderSaved] = useState(false);
-  const [testingConnection, setTestingConnection] = useState(false);
+  const [testingConnection, setTestingConnection] = useState<"claude" | "foundry" | null>(null);
   const [connectionResult, setConnectionResult] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [claudeVerified, setClaudeVerified] = useState(false);
+  const [foundryVerified, setFoundryVerified] = useState(false);
 
   // Import/export
   const [importStatus, setImportStatus] = useState("");
@@ -74,6 +76,8 @@ export default function SettingsPage() {
         setFoundryBaseUrl(providerData.baseUrl || "");
         setFoundryModel(providerData.model || "claude-opus-4-6");
         setHasToken(providerData.hasToken || false);
+        setClaudeVerified(providerData.claudeVerified || false);
+        setFoundryVerified(providerData.foundryVerified || false);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -632,7 +636,14 @@ export default function SettingsPage() {
                 className="mt-1 accent-[var(--accent)]"
               />
               <div>
-                <p className="text-sm font-semibold">Claude CLI (Local)</p>
+                <p className="text-sm font-semibold flex items-center gap-1.5">
+                  Claude CLI (Local)
+                  {claudeVerified && (
+                    <span className="text-xs font-normal text-green-600 dark:text-green-400 flex items-center gap-0.5">
+                      <CheckCircle className="w-3 h-3" /> Verified
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-[var(--muted)] mt-0.5">
                   Uses the local <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">claude</code> command.
                   Agentic mode — can explore repo files, run git commands, and read surrounding code for deeper analysis.
@@ -656,7 +667,14 @@ export default function SettingsPage() {
                 className="mt-1 accent-[var(--accent)]"
               />
               <div>
-                <p className="text-sm font-semibold">Vertex API (Scapula / Foundry)</p>
+                <p className="text-sm font-semibold flex items-center gap-1.5">
+                  Vertex API (Scapula / Foundry)
+                  {foundryVerified && (
+                    <span className="text-xs font-normal text-green-600 dark:text-green-400 flex items-center gap-0.5">
+                      <CheckCircle className="w-3 h-3" /> Verified
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-[var(--muted)] mt-0.5">
                   Direct API calls via a Vertex-compatible endpoint. Faster but reviews the diff as-is without repo exploration.
                 </p>
@@ -715,7 +733,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={async () => {
                 setProviderSaving(true);
@@ -751,13 +769,14 @@ export default function SettingsPage() {
               {providerSaved ? "Saved!" : "Save"}
             </button>
 
-            {providerType === "foundry" && (
-              <button
-                onClick={async () => {
-                  setTestingConnection(true);
-                  setConnectionResult(null);
-                  setConnectionError(null);
-                  try {
+            <button
+              onClick={async () => {
+                const target = providerType;
+                setTestingConnection(target);
+                setConnectionResult(null);
+                setConnectionError(null);
+                try {
+                  if (target === "foundry") {
                     await fetch("/api/settings/provider", {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
@@ -772,30 +791,36 @@ export default function SettingsPage() {
                       setHasToken(true);
                       setFoundryToken("");
                     }
-                    const res = await fetch("/api/settings/provider", { method: "POST" });
-                    const data = await res.json();
-                    setConnectionResult(data.available);
-                    setConnectionError(data.error || null);
-                  } catch {
-                    setConnectionResult(false);
-                  } finally {
-                    setTestingConnection(false);
                   }
-                }}
-                disabled={testingConnection}
-                className="flex items-center gap-1 px-4 py-2 text-sm border border-[var(--card-border)] rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
-              >
-                {testingConnection ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : null}
-                Test Connection
-              </button>
-            )}
+                  const res = await fetch("/api/settings/provider", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ provider: target }),
+                  });
+                  const data = await res.json();
+                  setConnectionResult(data.available);
+                  setConnectionError(data.error || null);
+                  if (target === "claude") setClaudeVerified(data.available);
+                  else setFoundryVerified(data.available);
+                } catch {
+                  setConnectionResult(false);
+                } finally {
+                  setTestingConnection(null);
+                }
+              }}
+              disabled={!!testingConnection}
+              className="flex items-center gap-1 px-4 py-2 text-sm border border-[var(--card-border)] rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              {testingConnection === providerType ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : null}
+              Verify Connection
+            </button>
 
             {connectionResult !== null && (
               <span className={`flex items-center gap-1 text-sm ${connectionResult ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
                 {connectionResult ? (
-                  <><CheckCircle className="w-4 h-4" /> Connected</>
+                  <><CheckCircle className="w-4 h-4" /> Verified</>
                 ) : (
                   <><XCircle className="w-4 h-4" /> Failed</>
                 )}

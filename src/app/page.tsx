@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Play, Loader2, FolderOpen, Clock, ShieldAlert, ChevronDown, ChevronRight, Save, RotateCcw, Cpu } from "lucide-react";
+import { GitBranch, Play, Loader2, FolderOpen, Clock, ShieldAlert, ChevronDown, ChevronRight, Save, RotateCcw, Cpu, Settings } from "lucide-react";
 import type { SessionWithStats } from "@/lib/types";
 
 export default function HomePage() {
@@ -26,6 +26,7 @@ export default function HomePage() {
   const [promptSaving, setPromptSaving] = useState(false);
   const [promptSaved, setPromptSaved] = useState(false);
   const [activeProvider, setActiveProvider] = useState<"claude" | "foundry">("claude");
+  const [verifiedProviders, setVerifiedProviders] = useState<("claude" | "foundry")[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -38,7 +39,15 @@ export default function HomePage() {
         setSavedRepos(reviewData.repos || []);
         setDefaultPrompt(promptData.defaultPrompt || "");
         setBasePrompt(promptData.prompt || promptData.defaultPrompt || "");
-        if (providerData.provider) setActiveProvider(providerData.provider);
+        const verified: ("claude" | "foundry")[] = [];
+        if (providerData.claudeVerified) verified.push("claude");
+        if (providerData.foundryVerified) verified.push("foundry");
+        setVerifiedProviders(verified);
+        if (providerData.provider && verified.includes(providerData.provider)) {
+          setActiveProvider(providerData.provider);
+        } else if (verified.length > 0) {
+          setActiveProvider(verified[0]);
+        }
       })
       .catch(() => {});
   }, []);
@@ -130,7 +139,7 @@ export default function HomePage() {
 
   const startReview = () => {
     if (!repoPath || !branch || !baseBranch) return;
-    if (remoteUrl.includes("github-sec.washington.palantircloud.com")) {
+    if (activeProvider === "claude" && remoteUrl.includes("github-sec.washington.palantircloud.com")) {
       setShowItarModal(true);
       return;
     }
@@ -299,27 +308,59 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-1.5">
-              <button
-                onClick={startReview}
-                disabled={loading || !branch || !baseBranch || branch === baseBranch}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50 font-medium text-sm transition-colors"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Starting Review...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4" />
-                    Start Review
-                  </>
-                )}
-              </button>
-              <p className="text-xs text-center text-[var(--muted)] flex items-center justify-center gap-1">
-                <Cpu className="w-3 h-3" />
-                {activeProvider === "foundry" ? "Vertex API" : "Claude CLI (local)"}
-              </p>
+              {verifiedProviders.length === 0 ? (
+                <div className="text-center py-2">
+                  <p className="text-sm text-[var(--muted)] mb-2">No verified AI providers</p>
+                  <a
+                    href="/settings"
+                    className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                  >
+                    <Settings className="w-3 h-3" />
+                    Configure in Settings
+                  </a>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    {verifiedProviders.length > 1 && (
+                      <select
+                        value={activeProvider}
+                        onChange={(e) => setActiveProvider(e.target.value as "claude" | "foundry")}
+                        className="px-3 py-2.5 text-sm border rounded-md bg-[var(--card-bg)] border-[var(--card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
+                      >
+                        {verifiedProviders.map((p) => (
+                          <option key={p} value={p}>
+                            {p === "foundry" ? "Vertex API" : "Claude CLI"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      onClick={startReview}
+                      disabled={loading || !branch || !baseBranch || branch === baseBranch}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50 font-medium text-sm transition-colors"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Starting Review...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4" />
+                          Start Review
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {verifiedProviders.length === 1 && (
+                    <p className="text-xs text-center text-[var(--muted)] flex items-center justify-center gap-1">
+                      <Cpu className="w-3 h-3" />
+                      {activeProvider === "foundry" ? "Vertex API" : "Claude CLI (local)"}
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           </>
         )}

@@ -54,6 +54,7 @@ export function getFoundryToken(): string | null {
 
 export function setFoundryToken(token: string) {
   setSetting("foundry_token", token);
+  clearProviderVerified("foundry");
 }
 
 export function clearFoundryToken() {
@@ -69,6 +70,7 @@ export function getFoundryBaseUrl(): string {
 
 export function setFoundryBaseUrl(url: string) {
   setSetting("foundry_base_url", url);
+  clearProviderVerified("foundry");
 }
 
 export function getFoundryModel(): string {
@@ -77,4 +79,21 @@ export function getFoundryModel(): string {
 
 export function setFoundryModel(model: string) {
   setSetting("foundry_model", model);
+}
+
+export function getProviderVerified(provider: "claude" | "foundry"): boolean {
+  return getSetting(`${provider}_verified`) === "true";
+}
+
+export function setProviderVerified(provider: "claude" | "foundry", verified: boolean) {
+  if (verified) {
+    setSetting(`${provider}_verified`, "true");
+  } else {
+    clearProviderVerified(provider);
+  }
+}
+
+function clearProviderVerified(provider: "claude" | "foundry") {
+  const db = getDb();
+  db.prepare("DELETE FROM settings WHERE key = ?").run(`${provider}_verified`);
 }

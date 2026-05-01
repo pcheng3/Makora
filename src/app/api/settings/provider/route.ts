@@ -8,6 +8,8 @@ import {
   setFoundryModel,
   getFoundryToken,
   setFoundryToken,
+  getProviderVerified,
+  setProviderVerified,
 } from "@/lib/db/settings";
 import { createProvider } from "@/lib/ai/provider";
 
@@ -18,7 +20,10 @@ export async function GET() {
     const model = getFoundryModel();
     const hasToken = !!getFoundryToken();
 
-    return NextResponse.json({ provider, baseUrl, model, hasToken });
+    const claudeVerified = getProviderVerified("claude");
+    const foundryVerified = getProviderVerified("foundry");
+
+    return NextResponse.json({ provider, baseUrl, model, hasToken, claudeVerified, foundryVerified });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
@@ -61,22 +66,16 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
-    const providerName = getAIProvider();
+    const body = await req.json().catch(() => ({}));
+    const providerName = (body.provider as "claude" | "foundry") || getAIProvider();
     const provider = createProvider(providerName);
-    const available = await provider.isAvailable();
+    const result = await provider.testConnection();
 
-    if (!available) {
-      return NextResponse.json({ available: false, error: "Provider not configured" });
-    }
+    setProviderVerified(providerName, result.available);
 
-    if (providerName === "foundry") {
-      const result = await provider.testConnection();
-      return NextResponse.json(result);
-    }
-
-    return NextResponse.json({ available });
+    return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ available: false, error: message });
