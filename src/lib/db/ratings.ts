@@ -23,6 +23,16 @@ export function upsertRating(data: {
 
 export function getUnprocessedRatings(sessionId?: number) {
   const db = getDb();
+  const unprocessedCondition = `(
+    r.id NOT IN (SELECT rating_id FROM rule_source_ratings)
+    OR EXISTS (
+      SELECT 1 FROM rule_source_ratings rsr
+      WHERE rsr.rating_id = r.id
+        AND (rsr.learned_rating != r.rating
+             OR COALESCE(rsr.learned_comment, '') != COALESCE(r.comment, ''))
+    )
+  )`;
+
   if (sessionId !== undefined) {
     return db
       .prepare(
@@ -30,7 +40,7 @@ export function getUnprocessedRatings(sessionId?: number) {
                 ri.code_snippet as item_code_snippet, ri.file_path as item_file_path, ri.proposed_fix as item_proposed_fix
          FROM ratings r
          JOIN review_items ri ON r.review_item_id = ri.id
-         WHERE r.id NOT IN (SELECT rating_id FROM rule_source_ratings)
+         WHERE ${unprocessedCondition}
            AND ri.session_id = ?`
       )
       .all(sessionId);
@@ -41,7 +51,7 @@ export function getUnprocessedRatings(sessionId?: number) {
               ri.code_snippet as item_code_snippet, ri.file_path as item_file_path, ri.proposed_fix as item_proposed_fix
        FROM ratings r
        JOIN review_items ri ON r.review_item_id = ri.id
-       WHERE r.id NOT IN (SELECT rating_id FROM rule_source_ratings)`
+       WHERE ${unprocessedCondition}`
     )
     .all();
 }
@@ -89,6 +99,34 @@ export function getFewShotExamples(
   }
 
   return [...negatives, ...positives];
+}
+
+export function getSessionLearningStatus(sessionId: number): {
+  hasRatings: boolean;
+  hasLearnings: boolean;
+  needsLearning: boolean;
+} {
+  const db = getDb();
+  const result = db
+    .prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM ratings r JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = ?) as total_ratings,
+        (SELECT COUNT(*) FROM rule_source_ratings rsr JOIN ratings r ON rsr.rating_id = r.id JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = ?) as learned_ratings,
+        (SELECT COUNT(*) FROM ratings r JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = ? AND (
+          r.id NOT IN (SELECT rating_id FROM rule_source_ratings)
+          OR EXISTS (SELECT 1 FROM rule_source_ratings rsr WHERE rsr.rating_id = r.id AND (rsr.learned_rating != r.rating OR COALESCE(rsr.learned_comment, '') != COALESCE(r.comment, '')))
+        )) as unprocessed_ratings`
+    )
+    .get(sessionId, sessionId, sessionId) as {
+    total_ratings: number;
+    learned_ratings: number;
+    unprocessed_ratings: number;
+  };
+  return {
+    hasRatings: result.total_ratings > 0,
+    hasLearnings: result.learned_ratings > 0,
+    needsLearning: result.unprocessed_ratings > 0,
+  };
 }
 
 export function getSessionRatingCount(sessionId: number): number {

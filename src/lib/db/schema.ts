@@ -104,6 +104,17 @@ function runMigrations(db: Database.Database) {
     db.exec("ALTER TABLE rules ADD COLUMN file_extensions TEXT");
     backfillFileExtensions(db);
   }
+
+  const rsrCols = db.pragma("table_info(rule_source_ratings)") as { name: string }[];
+  if (!rsrCols.some((c) => c.name === "learned_rating")) {
+    db.exec("ALTER TABLE rule_source_ratings ADD COLUMN learned_rating INTEGER");
+    db.exec("ALTER TABLE rule_source_ratings ADD COLUMN learned_comment TEXT");
+    db.exec(`
+      UPDATE rule_source_ratings
+      SET learned_rating = (SELECT r.rating FROM ratings r WHERE r.id = rule_source_ratings.rating_id),
+          learned_comment = (SELECT r.comment FROM ratings r WHERE r.id = rule_source_ratings.rating_id)
+    `);
+  }
 }
 
 function backfillFileExtensions(db: Database.Database) {

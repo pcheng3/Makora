@@ -46,7 +46,7 @@ export async function runLearningPipeline(sessionId: number) {
       });
       linkRatingsToRule(
         ruleId,
-        thumbsDown.map((r) => r.id)
+        thumbsDown.map((r) => ({ id: r.id, rating: r.rating, comment: r.comment }))
       );
       rulesCreated++;
     }
@@ -67,7 +67,7 @@ export async function runLearningPipeline(sessionId: number) {
       });
       linkRatingsToRule(
         ruleId,
-        thumbsUp.map((r) => r.id)
+        thumbsUp.map((r) => ({ id: r.id, rating: r.rating, comment: r.comment }))
       );
       rulesCreated++;
     }
@@ -181,11 +181,14 @@ async function consolidateRules(): Promise<number> {
       const db = (await import("../db/connection")).getDb();
       const sourceRatings = db
         .prepare(
-          `SELECT rating_id FROM rule_source_ratings WHERE rule_id IN (${cluster.map(() => "?").join(",")})`
+          `SELECT rsr.rating_id as id, r.rating, r.comment
+           FROM rule_source_ratings rsr
+           JOIN ratings r ON r.id = rsr.rating_id
+           WHERE rsr.rule_id IN (${cluster.map(() => "?").join(",")})`
         )
-        .all(...cluster.map((r) => r.id)) as { rating_id: number }[];
-      for (const { rating_id } of sourceRatings) {
-        linkRatingsToRule(newId, [rating_id]);
+        .all(...cluster.map((r) => r.id)) as { id: number; rating: number; comment: string | null }[];
+      if (sourceRatings.length > 0) {
+        linkRatingsToRule(newId, sourceRatings);
       }
 
       if (totalApplied > 0) {

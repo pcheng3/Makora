@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, ThumbsUp, ThumbsDown, Trash2 } from "lucide-react";
+import { GitBranch, ThumbsUp, ThumbsDown, Trash2, Brain, Loader2 } from "lucide-react";
 import type { SessionWithStats } from "@/lib/types";
 
 export default function HistoryPage() {
@@ -10,6 +10,8 @@ export default function HistoryPage() {
   const [sessions, setSessions] = useState<SessionWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [learningSessionId, setLearningSessionId] = useState<number | null>(null);
+  const [isLearningAll, setIsLearningAll] = useState(false);
 
   useEffect(() => {
     fetch("/api/reviews?limit=50")
@@ -30,6 +32,38 @@ export default function HistoryPage() {
     setConfirmDeleteAll(false);
   };
 
+  const refreshSessions = async () => {
+    const res = await fetch("/api/reviews?limit=50");
+    const data = await res.json();
+    setSessions(data.sessions || []);
+  };
+
+  const learnOne = async (sessionId: number) => {
+    setLearningSessionId(sessionId);
+    try {
+      await fetch("/api/learn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      await refreshSessions();
+    } catch { /* ignore */ }
+    setLearningSessionId(null);
+  };
+
+  const learnAll = async () => {
+    setIsLearningAll(true);
+    try {
+      await fetch("/api/learn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "all" }),
+      });
+      await refreshSessions();
+    } catch { /* ignore */ }
+    setIsLearningAll(false);
+  };
+
   if (loading) {
     return (
       <div className="p-8">
@@ -45,6 +79,20 @@ export default function HistoryPage() {
         <h1 className="text-2xl font-bold">Review History</h1>
         {sessions.length > 0 && (
           <div className="flex items-center gap-2">
+            {sessions.some((s) => s.needs_learning > 0) && !confirmDeleteAll && (
+              <button
+                onClick={learnAll}
+                disabled={isLearningAll}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20 cursor-pointer disabled:opacity-50"
+              >
+                {isLearningAll ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Brain className="w-3 h-3" />
+                )}
+                {isLearningAll ? "Learning..." : "Learn All"}
+              </button>
+            )}
             {confirmDeleteAll ? (
               <>
                 <span className="text-xs text-[var(--danger)]">Delete all {sessions.length} sessions?</span>
@@ -99,17 +147,25 @@ export default function HistoryPage() {
                       <span className="font-mono font-semibold text-sm">{s.branch}</span>
                       <span className="text-xs text-[var(--muted)]">vs {s.base_branch}</span>
                     </div>
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        s.status === "completed"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : s.status === "failed"
-                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                      }`}
-                    >
-                      {s.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {s.has_learnings > 0 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" title="Has learned rules">
+                          <Brain className="w-3 h-3" />
+                          Learned
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          s.status === "completed"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : s.status === "failed"
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                        }`}
+                      >
+                        {s.status}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-[var(--muted)]">
@@ -139,6 +195,21 @@ export default function HistoryPage() {
                   </div>
                 </button>
 
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    learnOne(s.id);
+                  }}
+                  disabled={learningSessionId === s.id || s.rated_items === 0 || s.needs_learning === 0}
+                  className="px-3 flex items-center text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors border-l border-[var(--card-border)] cursor-pointer disabled:opacity-30 disabled:cursor-default"
+                  title={s.rated_items === 0 ? "No ratings to learn from" : s.needs_learning === 0 ? "Knowledge up to date" : "Learn from ratings"}
+                >
+                  {learningSessionId === s.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Brain className="w-4 h-4" />
+                  )}
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

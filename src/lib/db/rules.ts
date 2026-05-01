@@ -117,13 +117,16 @@ export function deleteRule(id: number) {
   db.prepare("DELETE FROM rules WHERE id = ?").run(id);
 }
 
-export function linkRatingsToRule(ruleId: number, ratingIds: number[]) {
+export function linkRatingsToRule(
+  ruleId: number,
+  ratings: Array<{ id: number; rating: number; comment: string | null }>
+) {
   const db = getDb();
   const stmt = db.prepare(
-    "INSERT OR IGNORE INTO rule_source_ratings (rule_id, rating_id) VALUES (?, ?)"
+    "INSERT OR REPLACE INTO rule_source_ratings (rule_id, rating_id, learned_rating, learned_comment) VALUES (?, ?, ?, ?)"
   );
-  for (const ratingId of ratingIds) {
-    stmt.run(ruleId, ratingId);
+  for (const r of ratings) {
+    stmt.run(ruleId, r.id, r.rating, r.comment);
   }
 }
 

@@ -42,7 +42,12 @@ export function listSessions(
         (SELECT COUNT(*) FROM review_items WHERE session_id = s.id) as total_items,
         (SELECT COUNT(*) FROM ratings r JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = s.id) as rated_items,
         (SELECT COUNT(*) FROM ratings r JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = s.id AND r.rating = 1) as thumbs_up,
-        (SELECT COUNT(*) FROM ratings r JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = s.id AND r.rating = -1) as thumbs_down
+        (SELECT COUNT(*) FROM ratings r JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = s.id AND r.rating = -1) as thumbs_down,
+        (SELECT COUNT(*) FROM rule_source_ratings rsr JOIN ratings r ON rsr.rating_id = r.id JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = s.id) as has_learnings,
+        (SELECT COUNT(*) FROM ratings r JOIN review_items ri ON r.review_item_id = ri.id WHERE ri.session_id = s.id AND (
+          r.id NOT IN (SELECT rating_id FROM rule_source_ratings)
+          OR EXISTS (SELECT 1 FROM rule_source_ratings rsr WHERE rsr.rating_id = r.id AND (rsr.learned_rating != r.rating OR COALESCE(rsr.learned_comment, '') != COALESCE(r.comment, '')))
+        )) as needs_learning
        FROM sessions s
        ORDER BY s.created_at DESC
        LIMIT ? OFFSET ?`

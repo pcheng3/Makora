@@ -89,6 +89,8 @@ export interface SessionWithStats extends Session {
   rated_items: number;
   thumbs_up: number;
   thumbs_down: number;
+  has_learnings: number;
+  needs_learning: number;
 }
 
 export interface AIReviewOutput {

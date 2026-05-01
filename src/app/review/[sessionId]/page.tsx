@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, GitBranch, Filter, Brain, Square, Terminal, Gamepad2 } from "lucide-react";
+import { Loader2, GitBranch, Filter, Brain, Square, Terminal, Gamepad2, CheckCircle2 } from "lucide-react";
 import ReviewItemCard from "@/components/review/ReviewItemCard";
 import GoblinRunner from "@/components/review/GoblinRunner";
 import type { Session, ReviewItemWithRating } from "@/lib/types";
@@ -66,6 +66,11 @@ export default function ReviewSessionPage() {
   const [filterRating, setFilterRating] = useState<FilterRating>("all");
   const [learningStatus, setLearningStatus] = useState("");
   const [isLearningActive, setIsLearningActive] = useState(false);
+  const [learningState, setLearningState] = useState<{
+    hasRatings: boolean;
+    hasLearnings: boolean;
+    needsLearning: boolean;
+  } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [quipIndex, setQuipIndex] = useState(() => Math.floor(Math.random() * REVIEW_QUIPS.length));
   const [activityLog, setActivityLog] = useState<{ tool: string; input: string }[]>([]);
@@ -179,23 +184,33 @@ export default function ReviewSessionPage() {
     }, 2000);
   }, [sessionId]);
 
+  const fetchLearningState = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/learn/status?sessionId=${sessionId}`);
+      const data = await res.json();
+      setLearningState({
+        hasRatings: data.hasRatings,
+        hasLearnings: data.hasLearnings,
+        needsLearning: data.needsLearning,
+      });
+      return data;
+    } catch { return null; }
+  }, [sessionId]);
+
   useEffect(() => {
     const checkLearningStatus = async () => {
-      try {
-        const res = await fetch(`/api/learn/status?sessionId=${sessionId}`);
-        const data = await res.json();
-        if (data.isLearning) {
-          setIsLearningActive(true);
-          setLearningStatus("Learning from your feedback...");
-          startLearningPoll();
-        }
-      } catch { /* ignore */ }
+      const data = await fetchLearningState();
+      if (data?.isLearning) {
+        setIsLearningActive(true);
+        setLearningStatus("Learning from your feedback...");
+        startLearningPoll();
+      }
     };
     checkLearningStatus();
     return () => {
       if (learningPollRef.current) clearInterval(learningPollRef.current);
     };
-  }, [sessionId, startLearningPoll]);
+  }, [sessionId, startLearningPoll, fetchLearningState]);
 
   const handleRate = async (itemId: number, rating: 1 | -1, comment?: string) => {
     try {
@@ -221,6 +236,7 @@ export default function ReviewSessionPage() {
         )
       );
 
+      fetchLearningState();
     } catch {
       // silently fail — rating will be retried on next interaction
     }
@@ -257,6 +273,7 @@ export default function ReviewSessionPage() {
       } else {
         setLearningStatus(data.message || "");
       }
+      await fetchLearningState();
       setTimeout(() => setLearningStatus(""), 5000);
     } catch {
       setLearningStatus("");
@@ -504,20 +521,36 @@ export default function ReviewSessionPage() {
             </div>
           </div>
 
-          {ratedCount >= 1 && (
-            <button
-              onClick={triggerLearning}
-              disabled={isLearningActive}
-              className="mt-6 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-md hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLearningActive ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Brain className="w-3.5 h-3.5" />
-              )}
-              {isLearningActive ? "Learning..." : "Learn from Ratings"}
-            </button>
-          )}
+          {ratedCount >= 1 && (() => {
+            const isUpToDate = learningState?.hasLearnings && !learningState?.needsLearning;
+            const buttonText = isLearningActive
+              ? "Learning..."
+              : isUpToDate
+                ? "Knowledge up to date"
+                : learningState?.hasLearnings
+                  ? "Re-learn from Ratings"
+                  : "Learn from Ratings";
+            return (
+              <button
+                onClick={triggerLearning}
+                disabled={isLearningActive || !!isUpToDate}
+                className={`mt-6 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isUpToDate
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                    : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50"
+                }`}
+              >
+                {isLearningActive ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : isUpToDate ? (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                ) : (
+                  <Brain className="w-3.5 h-3.5" />
+                )}
+                {buttonText}
+              </button>
+            );
+          })()}
         </div>
       )}
     </div>
