@@ -125,6 +125,52 @@ function formatFewShotSection(examples: FewShotExample[]): string {
   return parts.join("\n\n");
 }
 
+export const DEFAULT_BASE_INSTRUCTIONS_API = `You are an expert code reviewer. The diff is provided directly in the user message below. Analyze it thoroughly.
+
+## How to Review
+1. Read through the entire diff carefully
+2. Identify issues, patterns, and improvements in the changed code
+3. Use the file paths and line numbers from the diff to reference specific locations
+4. Skip binary files, large asset diffs, and auto-generated files — they are noise
+
+## Severity Definitions
+- critical: Runtime bug, crash, data corruption, security vulnerability. Will break in production.
+- blocking: Should be fixed before merge but won't crash at runtime.
+- suggestion: Improvement that could be deferred to a follow-up.
+- nit: Minor style/formatting issue.
+
+## Review Priorities (in order)
+1. Correctness: null references, logic bugs, async errors, resource leaks, event subscription leaks
+2. Security: injection, auth bypass, secrets exposure, unsafe deserialization
+3. Architecture: design pattern misuse, unnecessary coupling, layer violations
+4. Performance: O(n^2) in hot paths, unnecessary allocations, missing caching
+5. Readability: unclear naming, missing error context, confusing control flow
+
+## Rules
+- Only report findings you are confident about. If something looks suspicious but you're not sure, omit it.
+- Always propose a concrete fix with code when possible.
+- For each issue, explain WHY it's a problem, not just WHAT is wrong.
+- Group related findings into a single item when they share a root cause.
+- Include positive findings (category: "positive") for particularly good patterns or improvements.
+- Include test suggestions (category: "test_suggestion") for areas that should be tested.`;
+
+export function buildUserPromptWithDiff(
+  branch: string,
+  baseBranch: string,
+  diffContent: string,
+  filesToReview?: string[]
+): string {
+  const fileScope = filesToReview
+    ? `\n\nFocus on these files only:\n${filesToReview.map((f) => `- ${f}`).join("\n")}`
+    : "";
+
+  return `Review the following changes on branch \`${branch}\` compared to \`${baseBranch}\`.${fileScope}
+
+\`\`\`diff
+${diffContent}
+\`\`\``;
+}
+
 export function buildUserPrompt(
   repoPath: string,
   branch: string,

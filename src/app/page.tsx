@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Play, Loader2, FolderOpen, Clock, ShieldAlert, ChevronDown, ChevronRight, Save, RotateCcw } from "lucide-react";
+import { GitBranch, Play, Loader2, FolderOpen, Clock, ShieldAlert, ChevronDown, ChevronRight, Save, RotateCcw, Cpu } from "lucide-react";
 import type { SessionWithStats } from "@/lib/types";
 
 export default function HomePage() {
@@ -25,17 +25,20 @@ export default function HomePage() {
   const [promptDirty, setPromptDirty] = useState(false);
   const [promptSaving, setPromptSaving] = useState(false);
   const [promptSaved, setPromptSaved] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<"claude" | "foundry">("claude");
 
   useEffect(() => {
     Promise.all([
       fetch("/api/reviews?limit=5").then((r) => r.json()),
       fetch("/api/settings/custom-prompt").then((r) => r.json()),
+      fetch("/api/settings/provider").then((r) => r.json()),
     ])
-      .then(([reviewData, promptData]) => {
+      .then(([reviewData, promptData, providerData]) => {
         setRecentSessions(reviewData.sessions || []);
         setSavedRepos(reviewData.repos || []);
         setDefaultPrompt(promptData.defaultPrompt || "");
         setBasePrompt(promptData.prompt || promptData.defaultPrompt || "");
+        if (providerData.provider) setActiveProvider(providerData.provider);
       })
       .catch(() => {});
   }, []);
@@ -108,6 +111,7 @@ export default function HomePage() {
           repoPath,
           branch,
           baseBranch,
+          provider: activeProvider,
           ...(isCustom ? { customBasePrompt: basePrompt } : {}),
         }),
       });
@@ -294,23 +298,29 @@ export default function HomePage() {
               )}
             </div>
 
-            <button
-              onClick={startReview}
-              disabled={loading || !branch || !baseBranch || branch === baseBranch}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50 font-medium text-sm transition-colors"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Starting Review...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  Start Review
-                </>
-              )}
-            </button>
+            <div className="space-y-1.5">
+              <button
+                onClick={startReview}
+                disabled={loading || !branch || !baseBranch || branch === baseBranch}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50 font-medium text-sm transition-colors"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Starting Review...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Start Review
+                  </>
+                )}
+              </button>
+              <p className="text-xs text-center text-[var(--muted)] flex items-center justify-center gap-1">
+                <Cpu className="w-3 h-3" />
+                {activeProvider === "foundry" ? "Vertex API" : "Claude CLI (local)"}
+              </p>
+            </div>
           </>
         )}
 

@@ -1,6 +1,7 @@
 import { getUnprocessedRatings } from "../db/ratings";
 import { insertRule, linkRatingsToRule, getEnabledRules, updateRule, deleteRule } from "../db/rules";
 import { createProvider } from "../ai/provider";
+import { getAIProvider } from "../db/settings";
 import { RULE_SYNTHESIS_SCHEMA } from "./rule-schema";
 import type { Rule } from "../types";
 import path from "path";
@@ -91,7 +92,7 @@ async function synthesizeRules(
   ratings: RatingWithItem[],
   ruleType: "do" | "avoid"
 ): Promise<Array<{ title: string; description: string; category?: string }>> {
-  const provider = createProvider("claude");
+  const provider = createProvider(getAIProvider());
 
   const examples = ratings.map((r) => ({
     title: r.item_title,
@@ -247,7 +248,7 @@ async function mergeRules(
   cluster: Rule[],
   ruleType: "do" | "avoid"
 ): Promise<{ title: string; description: string; category?: string } | null> {
-  const provider = createProvider("claude");
+  const provider = createProvider(getAIProvider());
 
   const prompt = `These ${ruleType === "avoid" ? "AVOID" : "DO"} rules for an AI code reviewer overlap and should be merged into a single, concise rule.
 

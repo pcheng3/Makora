@@ -1,6 +1,6 @@
 import { createProvider } from "./provider";
-import { buildSystemPrompt, buildUserPrompt } from "./prompt-builder";
-import { getDiffStats, getCommitHash } from "../git/diff";
+import { buildSystemPrompt, buildUserPrompt, buildUserPromptWithDiff, DEFAULT_BASE_INSTRUCTIONS_API } from "./prompt-builder";
+import { getDiffStats, getCommitHash, getDiff } from "../git/diff";
 import {
   updateSessionStatus,
   updateSessionChunks,
@@ -89,14 +89,22 @@ export async function runReview(sessionId: number, repoPath: string, branch: str
     updateSessionChunks(sessionId, fileChunks.length, 0);
     emitSSE(sessionId, "progress", { chunksCompleted: 0, chunksTotal: fileChunks.length, itemsFound: 0 });
 
+    const isApiProvider = providerName === "foundry";
+
     const allExtensions = getFileExtensions(allFiles);
     const rules = getRelevantRules(allExtensions);
     const examples = getFewShotExamples(allExtensions);
     const guidance = getGuidanceContents();
-    const systemPrompt = buildSystemPrompt(rules, guidance, examples, customBasePrompt);
+    const baseInstructions = customBasePrompt || (isApiProvider ? DEFAULT_BASE_INSTRUCTIONS_API : undefined);
+    const systemPrompt = buildSystemPrompt(rules, guidance, examples, baseInstructions);
 
     if (rules.length > 0) {
       incrementTimesApplied(rules.map((r) => r.id));
+    }
+
+    let diffContent = "";
+    if (isApiProvider) {
+      diffContent = await getDiff(repoPath, branch, baseBranch);
     }
 
     const provider = createProvider(providerName);
@@ -119,12 +127,25 @@ export async function runReview(sessionId: number, repoPath: string, branch: str
         files: fileGroup,
       });
 
-      const userPrompt = buildUserPrompt(
-        repoPath,
-        branch,
-        baseBranch,
-        isSingleChunk ? undefined : fileGroup
-      );
+      let userPrompt: string;
+      if (isApiProvider) {
+        const chunkDiff = isSingleChunk
+          ? diffContent
+          : filterDiffByFiles(diffContent, fileGroup);
+        userPrompt = buildUserPromptWithDiff(
+          branch,
+          baseBranch,
+          chunkDiff,
+          isSingleChunk ? undefined : fileGroup
+        );
+      } else {
+        userPrompt = buildUserPrompt(
+          repoPath,
+          branch,
+          baseBranch,
+          isSingleChunk ? undefined : fileGroup
+        );
+      }
 
       const result = await provider.runReview({
         diff: userPrompt,
@@ -197,4 +218,21 @@ export async function runReview(sessionId: number, repoPath: string, branch: str
   } finally {
     activeReviews.delete(sessionId);
   }
+}
+
+function filterDiffByFiles(fullDiff: string, files: string[]): string {
+  const fileSet = new Set(files);
+  const lines = fullDiff.split("\n");
+  const result: string[] = [];
+  let include = false;
+
+  for (const line of lines) {
+    if (line.startsWith("diff --git")) {
+      const match = line.match(/b\/(.+)$/);
+      include = match ? fileSet.has(match[1]) : false;
+    }
+    if (include) result.push(line);
+  }
+
+  return result.join("\n");
 }

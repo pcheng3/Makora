@@ -14,10 +14,14 @@ import {
   Check,
   X,
   Filter,
+  Cpu,
+  Loader2,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import type { Rule, GuidanceFile } from "@/lib/types";
 
-type Tab = "rules" | "guidance" | "filters";
+type Tab = "rules" | "guidance" | "filters" | "provider";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("rules");
@@ -40,6 +44,18 @@ export default function SettingsPage() {
   const [skipExtensions, setSkipExtensions] = useState<string[]>([]);
   const [newExt, setNewExt] = useState("");
 
+  // Provider settings
+  const [providerType, setProviderType] = useState<"claude" | "foundry">("claude");
+  const [foundryBaseUrl, setFoundryBaseUrl] = useState("");
+  const [foundryModel, setFoundryModel] = useState("claude-opus-4-6");
+  const [foundryToken, setFoundryToken] = useState("");
+  const [hasToken, setHasToken] = useState(false);
+  const [providerSaving, setProviderSaving] = useState(false);
+  const [providerSaved, setProviderSaved] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionResult, setConnectionResult] = useState<boolean | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+
   // Import/export
   const [importStatus, setImportStatus] = useState("");
 
@@ -48,11 +64,16 @@ export default function SettingsPage() {
       fetch("/api/rules").then((r) => r.json()),
       fetch("/api/guidance").then((r) => r.json()),
       fetch("/api/settings/skip-extensions").then((r) => r.json()),
+      fetch("/api/settings/provider").then((r) => r.json()),
     ])
-      .then(([rulesData, guidanceData, skipData]) => {
+      .then(([rulesData, guidanceData, skipData, providerData]) => {
         setRules(rulesData.rules || []);
         setGuidance(guidanceData.files || []);
         setSkipExtensions(skipData.extensions || []);
+        setProviderType(providerData.provider || "claude");
+        setFoundryBaseUrl(providerData.baseUrl || "");
+        setFoundryModel(providerData.model || "claude-opus-4-6");
+        setHasToken(providerData.hasToken || false);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -323,6 +344,17 @@ export default function SettingsPage() {
           <Filter className="w-4 h-4" />
           File Filters
         </button>
+        <button
+          onClick={() => setTab("provider")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "provider"
+              ? "border-[var(--accent)] text-[var(--accent)]"
+              : "border-transparent text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          <Cpu className="w-4 h-4" />
+          AI Provider
+        </button>
       </div>
 
       {/* Rules tab */}
@@ -573,6 +605,208 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Provider tab */}
+      {tab === "provider" && (
+        <div className="space-y-6">
+          <p className="text-sm text-[var(--muted)]">
+            Choose between local Claude CLI or a Vertex-compatible API endpoint for running reviews.
+          </p>
+
+          <div className="space-y-3">
+            <label
+              className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                providerType === "claude"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                  : "border-[var(--card-border)] bg-[var(--card-bg)] hover:border-[var(--accent)]/50"
+              }`}
+              onClick={() => setProviderType("claude")}
+            >
+              <input
+                type="radio"
+                name="provider"
+                checked={providerType === "claude"}
+                onChange={() => setProviderType("claude")}
+                className="mt-1 accent-[var(--accent)]"
+              />
+              <div>
+                <p className="text-sm font-semibold">Claude CLI (Local)</p>
+                <p className="text-xs text-[var(--muted)] mt-0.5">
+                  Uses the local <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">claude</code> command.
+                  Agentic mode — can explore repo files, run git commands, and read surrounding code for deeper analysis.
+                </p>
+              </div>
+            </label>
+
+            <label
+              className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                providerType === "foundry"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                  : "border-[var(--card-border)] bg-[var(--card-bg)] hover:border-[var(--accent)]/50"
+              }`}
+              onClick={() => setProviderType("foundry")}
+            >
+              <input
+                type="radio"
+                name="provider"
+                checked={providerType === "foundry"}
+                onChange={() => setProviderType("foundry")}
+                className="mt-1 accent-[var(--accent)]"
+              />
+              <div>
+                <p className="text-sm font-semibold">Vertex API (Scapula / Foundry)</p>
+                <p className="text-xs text-[var(--muted)] mt-0.5">
+                  Direct API calls via a Vertex-compatible endpoint. Faster but reviews the diff as-is without repo exploration.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {providerType === "foundry" && (
+            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Vertex Base URL</label>
+                <input
+                  type="text"
+                  value={foundryBaseUrl}
+                  onChange={(e) => setFoundryBaseUrl(e.target.value)}
+                  placeholder="https://production.scapula.rubix.cloud/llm-portal/vertex/v1"
+                  className="w-full px-3 py-2 text-sm font-mono border rounded-md bg-[var(--card-bg)] border-[var(--card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
+                />
+                <p className="text-xs text-[var(--muted)] mt-1">
+                  Vertex-compatible endpoint. Falls back to <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">ANTHROPIC_VERTEX_BASE_URL</code> env var.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Model</label>
+                <input
+                  type="text"
+                  value={foundryModel}
+                  onChange={(e) => setFoundryModel(e.target.value)}
+                  placeholder="claude-opus-4-6"
+                  className="w-full px-3 py-2 text-sm border rounded-md bg-[var(--card-bg)] border-[var(--card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Auth Token
+                  {hasToken && !foundryToken && (
+                    <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+                      <CheckCircle className="inline w-3 h-3 mr-0.5" />
+                      saved
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="password"
+                  value={foundryToken}
+                  onChange={(e) => setFoundryToken(e.target.value)}
+                  placeholder={hasToken ? "Token saved — enter new value to replace" : "Paste your Scapula auth token"}
+                  className="w-full px-3 py-2 text-sm border rounded-md bg-[var(--card-bg)] border-[var(--card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
+                />
+                <p className="text-xs text-[var(--muted)] mt-1">
+                  Stored locally in the database (gitignored). Falls back to <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">ANTHROPIC_AUTH_TOKEN</code> env var.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setProviderSaving(true);
+                try {
+                  await fetch("/api/settings/provider", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      provider: providerType,
+                      baseUrl: foundryBaseUrl,
+                      model: foundryModel,
+                      ...(foundryToken ? { token: foundryToken } : {}),
+                    }),
+                  });
+                  if (foundryToken) {
+                    setHasToken(true);
+                    setFoundryToken("");
+                  }
+                  setProviderSaved(true);
+                  setTimeout(() => setProviderSaved(false), 2000);
+                } finally {
+                  setProviderSaving(false);
+                }
+              }}
+              disabled={providerSaving}
+              className="flex items-center gap-1 px-4 py-2 text-sm bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50"
+            >
+              {providerSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : providerSaved ? (
+                <Check className="w-4 h-4" />
+              ) : null}
+              {providerSaved ? "Saved!" : "Save"}
+            </button>
+
+            {providerType === "foundry" && (
+              <button
+                onClick={async () => {
+                  setTestingConnection(true);
+                  setConnectionResult(null);
+                  setConnectionError(null);
+                  try {
+                    await fetch("/api/settings/provider", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        provider: providerType,
+                        baseUrl: foundryBaseUrl,
+                        model: foundryModel,
+                        ...(foundryToken ? { token: foundryToken } : {}),
+                      }),
+                    });
+                    if (foundryToken) {
+                      setHasToken(true);
+                      setFoundryToken("");
+                    }
+                    const res = await fetch("/api/settings/provider", { method: "POST" });
+                    const data = await res.json();
+                    setConnectionResult(data.available);
+                    setConnectionError(data.error || null);
+                  } catch {
+                    setConnectionResult(false);
+                  } finally {
+                    setTestingConnection(false);
+                  }
+                }}
+                disabled={testingConnection}
+                className="flex items-center gap-1 px-4 py-2 text-sm border border-[var(--card-border)] rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+              >
+                {testingConnection ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : null}
+                Test Connection
+              </button>
+            )}
+
+            {connectionResult !== null && (
+              <span className={`flex items-center gap-1 text-sm ${connectionResult ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                {connectionResult ? (
+                  <><CheckCircle className="w-4 h-4" /> Connected</>
+                ) : (
+                  <><XCircle className="w-4 h-4" /> Failed</>
+                )}
+              </span>
+            )}
+            {connectionError && !connectionResult && (
+              <div className="w-full mt-2">
+                <p className="text-xs text-red-500 font-mono break-all">{connectionError}</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

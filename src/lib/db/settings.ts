@@ -38,3 +38,43 @@ export function getSkipExtensions(): string[] {
     return [];
   }
 }
+
+export function getAIProvider(): "claude" | "foundry" {
+  const val = getSetting("ai_provider");
+  return val === "foundry" ? "foundry" : "claude";
+}
+
+export function setAIProvider(provider: "claude" | "foundry") {
+  setSetting("ai_provider", provider);
+}
+
+export function getFoundryToken(): string | null {
+  return getSetting("foundry_token") || process.env.ANTHROPIC_AUTH_TOKEN || null;
+}
+
+export function setFoundryToken(token: string) {
+  setSetting("foundry_token", token);
+}
+
+export function clearFoundryToken() {
+  const db = getDb();
+  db.prepare("DELETE FROM settings WHERE key = ?").run("foundry_token");
+}
+
+const DEFAULT_FOUNDRY_BASE_URL = "https://production.scapula.rubix.cloud/llm-portal/vertex/v1";
+
+export function getFoundryBaseUrl(): string {
+  return getSetting("foundry_base_url") || process.env.ANTHROPIC_VERTEX_BASE_URL || DEFAULT_FOUNDRY_BASE_URL;
+}
+
+export function setFoundryBaseUrl(url: string) {
+  setSetting("foundry_base_url", url);
+}
+
+export function getFoundryModel(): string {
+  return getSetting("foundry_model") || process.env.ANTHROPIC_MODEL || "claude-opus-4-6";
+}
+
+export function setFoundryModel(model: string) {
+  setSetting("foundry_model", model);
+}
