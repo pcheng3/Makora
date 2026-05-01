@@ -32,7 +32,7 @@ export async function runLearningPipeline(sessionId: number) {
 
   let rulesCreated = 0;
 
-  if (thumbsDown.length >= 2) {
+  if (thumbsDown.length >= 1) {
     const avoidRules = await synthesizeRules(thumbsDown, "avoid");
     const exts = extractFileExtensions(thumbsDown);
     for (const rule of avoidRules) {
@@ -53,7 +53,7 @@ export async function runLearningPipeline(sessionId: number) {
     }
   }
 
-  if (thumbsUp.length >= 2) {
+  if (thumbsUp.length >= 1) {
     const doRules = await synthesizeRules(thumbsUp, "do");
     const exts = extractFileExtensions(thumbsUp);
     for (const rule of doRules) {

@@ -102,6 +102,10 @@ export default function ReviewSessionPage() {
   useEffect(() => {
     if (!session || session.status === "completed" || session.status === "failed" || session.status === "cancelled") return;
 
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
     const es = new EventSource(`/api/reviews/${sessionId}/stream`);
     eventSourceRef.current = es;
 
@@ -130,6 +134,11 @@ export default function ReviewSessionPage() {
     es.addEventListener("complete", () => {
       setSession((prev) => prev ? { ...prev, status: "completed" } : prev);
       es.close();
+      if (Notification.permission === "granted") {
+        new Notification("Review Complete", {
+          body: "Your code review has finished.",
+        });
+      }
     });
 
     es.addEventListener("cancelled", () => {
