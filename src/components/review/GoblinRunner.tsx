@@ -10,6 +10,7 @@ const JUMP_V = -11;
 const START_SPEED = 3;
 const MAX_SPEED = 8;
 const SPEED_INC = 0.001;
+const BOOST_V = -14;
 
 const P: Record<string, string> = {
   G: "#5a9c4f", g: "#3a6c2f",
@@ -124,6 +125,15 @@ interface Dot {
   y: number;
 }
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  life: number;
+}
+
 interface Game {
   phase: Phase;
   y: number;
@@ -135,6 +145,7 @@ interface Game {
   obstacles: Obstacle[];
   nextSpawn: number;
   dots: Dot[];
+  particles: Particle[];
 }
 
 function sprW(s: string[]) { return s[0].length * S; }
@@ -169,6 +180,7 @@ function makeGame(hiScore: number): Game {
     obstacles: [],
     nextSpawn: 180,
     dots,
+    particles: [],
   };
 }
 
@@ -289,16 +301,39 @@ export default function GoblinRunner() {
         const gy = g.y + 2 * S;
         const gw = gobW - 4 * S;
         const gh = gobH - 3 * S;
+        const stomped: Obstacle[] = [];
         for (const o of g.obstacles) {
           const ox = o.x + S;
           const oy = GROUND - o.h + S;
           const ow = o.w - 2 * S;
           const oh = o.h - S;
           if (gx < ox + ow && gx + gw > ox && gy < oy + oh && gy + gh > oy) {
-            g.phase = "dead";
-            g.hiScore = Math.max(g.hiScore, g.score);
-            break;
+            if (o.sprite === OBS_MUSHROOM) {
+              g.vy = BOOST_V;
+              const cx = o.x + o.w / 2;
+              const cy = GROUND - o.h / 2;
+              const colors = ["#cc3333", "#992222", "#ddccaa", "#bbaa88", "#ff6644"];
+              for (let i = 0; i < 14; i++) {
+                const angle = (Math.PI * 2 * i) / 14;
+                const spd = 2 + Math.random() * 3;
+                g.particles.push({
+                  x: cx, y: cy,
+                  vx: Math.cos(angle) * spd,
+                  vy: Math.sin(angle) * spd - 3,
+                  color: colors[Math.floor(Math.random() * colors.length)],
+                  life: 20 + Math.random() * 15,
+                });
+              }
+              stomped.push(o);
+            } else {
+              g.phase = "dead";
+              g.hiScore = Math.max(g.hiScore, g.score);
+              break;
+            }
           }
+        }
+        if (stomped.length > 0) {
+          g.obstacles = g.obstacles.filter(o => !stomped.includes(o));
         }
 
         // draw obstacles
@@ -307,6 +342,21 @@ export default function GoblinRunner() {
         // draw goblin
         const runSpr = Math.floor(g.frame / 8) % 2 === 0 ? GOBLIN_RUN1 : GOBLIN_RUN2;
         drawSprite(ctx, g.y < groundY ? GOBLIN_STAND : runSpr, 50, Math.floor(g.y));
+
+        // particles
+        for (const p of g.particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.3;
+          p.life--;
+        }
+        g.particles = g.particles.filter(p => p.life > 0);
+        for (const p of g.particles) {
+          ctx.globalAlpha = Math.min(1, p.life / 10);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(Math.floor(p.x), Math.floor(p.y), S, S);
+        }
+        ctx.globalAlpha = 1;
 
         // dots
         for (const d of g.dots) {
@@ -324,6 +374,20 @@ export default function GoblinRunner() {
         // dead
         for (const o of g.obstacles) drawSprite(ctx, o.sprite, Math.floor(o.x), GROUND - o.h);
         drawSprite(ctx, GOBLIN_DEAD, 50, Math.floor(g.y));
+
+        for (const p of g.particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.3;
+          p.life--;
+        }
+        g.particles = g.particles.filter(p => p.life > 0);
+        for (const p of g.particles) {
+          ctx.globalAlpha = Math.min(1, p.life / 10);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(Math.floor(p.x), Math.floor(p.y), S, S);
+        }
+        ctx.globalAlpha = 1;
 
         ctx.fillStyle = "#8888aa";
         ctx.font = "12px monospace";
