@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSession, listSessions, getDistinctRepos } from "@/lib/db/sessions";
+import { createSession, listSessions, getDistinctRepos, deleteSession, deleteAllSessions } from "@/lib/db/sessions";
 import { runReview } from "@/lib/ai/orchestrator";
 
 export async function POST(req: NextRequest) {
@@ -27,6 +27,28 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ sessionId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = req.nextUrl;
+    const id = searchParams.get("id");
+
+    if (id === "all") {
+      deleteAllSessions();
+      return NextResponse.json({ deleted: "all" });
+    }
+
+    if (id) {
+      deleteSession(parseInt(id));
+      return NextResponse.json({ deleted: parseInt(id) });
+    }
+
+    return NextResponse.json({ error: "id parameter required" }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });

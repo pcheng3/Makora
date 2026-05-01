@@ -93,6 +93,16 @@ export function getDistinctRepos(): string[] {
   return rows.map((r) => r.repo_path);
 }
 
+export function deleteSession(id: number) {
+  const db = getDb();
+  db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+}
+
+export function deleteAllSessions() {
+  const db = getDb();
+  db.prepare("DELETE FROM sessions").run();
+}
+
 export function updateSessionDiffStats(id: number, diffStats: string) {
   const db = getDb();
   db.prepare("UPDATE sessions SET diff_stats = ? WHERE id = ?").run(
