@@ -98,11 +98,40 @@ export function initSchema(db: Database.Database) {
   runMigrations(db);
 }
 
+function migrateComments(db: Database.Database) {
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='comments'").get();
+  if (tables) return;
+
+  db.exec(`
+    CREATE TABLE comments (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      review_item_id  INTEGER NOT NULL REFERENCES review_items(id) ON DELETE CASCADE,
+      text            TEXT NOT NULL,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX idx_comments_review_item ON comments(review_item_id);
+  `);
+
+  db.exec(`
+    INSERT INTO comments (review_item_id, text, created_at)
+    SELECT review_item_id, comment, created_at
+    FROM ratings
+    WHERE comment IS NOT NULL AND comment != ''
+  `);
+}
+
 function runMigrations(db: Database.Database) {
   const cols = db.pragma("table_info(rules)") as { name: string }[];
   if (!cols.some((c) => c.name === "file_extensions")) {
     db.exec("ALTER TABLE rules ADD COLUMN file_extensions TEXT");
     backfillFileExtensions(db);
+  }
+
+  migrateComments(db);
+
+  const riCols = db.pragma("table_info(review_items)") as { name: string }[];
+  if (!riCols.some((c) => c.name === "viewed")) {
+    db.exec("ALTER TABLE review_items ADD COLUMN viewed INTEGER DEFAULT 0");
   }
 
   const rsrCols = db.pragma("table_info(rule_source_ratings)") as { name: string }[];

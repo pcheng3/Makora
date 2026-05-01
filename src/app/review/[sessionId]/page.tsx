@@ -52,6 +52,7 @@ const REVIEW_QUIPS = [
 
 type FilterSeverity = "all" | "critical" | "blocking" | "suggestion" | "nit";
 type FilterRating = "all" | "rated" | "unrated";
+type FilterViewed = "all" | "viewed" | "unviewed";
 
 export default function ReviewSessionPage() {
   const params = useParams();
@@ -64,6 +65,7 @@ export default function ReviewSessionPage() {
   const [progress, setProgress] = useState({ chunksCompleted: 0, chunksTotal: 0, itemsFound: 0 });
   const [filterSeverity, setFilterSeverity] = useState<FilterSeverity>("all");
   const [filterRating, setFilterRating] = useState<FilterRating>("all");
+  const [filterViewed, setFilterViewed] = useState<FilterViewed>("all");
   const [learningStatus, setLearningStatus] = useState("");
   const [isLearningActive, setIsLearningActive] = useState(false);
   const [learningState, setLearningState] = useState<{
@@ -118,7 +120,7 @@ export default function ReviewSessionPage() {
       const newItem = JSON.parse(e.data);
       setItems((prev) => [
         ...prev,
-        { ...newItem, rating: null, created_at: new Date().toISOString() } as ReviewItemWithRating,
+        { ...newItem, rating: null, comments: [], viewed: false, created_at: new Date().toISOString() } as ReviewItemWithRating,
       ]);
     });
 
@@ -221,12 +223,12 @@ export default function ReviewSessionPage() {
     };
   }, [sessionId, startLearningPoll, fetchLearningState]);
 
-  const handleRate = async (itemId: number, rating: 1 | -1, comment?: string) => {
+  const handleRate = async (itemId: number, rating: 1 | -1) => {
     try {
       await fetch("/api/ratings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewItemId: itemId, rating, comment }),
+        body: JSON.stringify({ reviewItemId: itemId, rating }),
       });
       setItems((prev) =>
         prev.map((item) =>
@@ -237,7 +239,7 @@ export default function ReviewSessionPage() {
                   id: 0,
                   review_item_id: itemId,
                   rating,
-                  comment: comment || null,
+                  comment: null,
                   created_at: new Date().toISOString(),
                 },
               }
@@ -248,6 +250,62 @@ export default function ReviewSessionPage() {
       fetchLearningState();
     } catch {
       // silently fail — rating will be retried on next interaction
+    }
+  };
+
+  const handleAddComment = async (itemId: number, text: string) => {
+    try {
+      const res = await fetch("/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewItemId: itemId, text }),
+      });
+      const { comment } = await res.json();
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, comments: [...item.comments, comment] }
+            : item
+        )
+      );
+    } catch {
+      // silently fail
+    }
+  };
+
+  const handleDeleteComment = async (itemId: number, commentId: number) => {
+    try {
+      await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, comments: item.comments.filter((c) => c.id !== commentId) }
+            : item
+        )
+      );
+    } catch {
+      // silently fail
+    }
+  };
+
+  const handleToggleViewed = async (itemId: number, viewed: boolean) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, viewed } : item
+      )
+    );
+    try {
+      await fetch(`/api/review-items/${itemId}/viewed`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ viewed }),
+      });
+    } catch {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, viewed: !viewed } : item
+        )
+      );
     }
   };
 
@@ -294,12 +352,15 @@ export default function ReviewSessionPage() {
     if (filterSeverity !== "all" && item.severity !== filterSeverity) return false;
     if (filterRating === "rated" && !item.rating) return false;
     if (filterRating === "unrated" && item.rating) return false;
+    if (filterViewed === "viewed" && !item.viewed) return false;
+    if (filterViewed === "unviewed" && item.viewed) return false;
     return true;
   });
 
   const ratedCount = items.filter((i) => i.rating).length;
   const thumbsUp = items.filter((i) => i.rating?.rating === 1).length;
   const thumbsDown = items.filter((i) => i.rating?.rating === -1).length;
+  const viewedCount = items.filter((i) => i.viewed).length;
 
   if (loading) {
     return (
@@ -456,6 +517,15 @@ export default function ReviewSessionPage() {
               <option value="rated">Rated</option>
               <option value="unrated">Unrated</option>
             </select>
+            <select
+              value={filterViewed}
+              onChange={(e) => setFilterViewed(e.target.value as FilterViewed)}
+              className="px-2 py-1 text-xs border rounded bg-[var(--card-bg)] border-[var(--card-border)]"
+            >
+              <option value="all">All items</option>
+              <option value="viewed">Viewed</option>
+              <option value="unviewed">Unviewed</option>
+            </select>
             <span className="text-xs text-[var(--muted)]">
               {filteredItems.length} of {items.length} items
             </span>
@@ -469,6 +539,9 @@ export default function ReviewSessionPage() {
               key={item.id}
               item={item}
               onRate={handleRate}
+              onAddComment={handleAddComment}
+              onDeleteComment={handleDeleteComment}
+              onToggleViewed={handleToggleViewed}
             />
           ))}
         </div>
@@ -499,6 +572,20 @@ export default function ReviewSessionPage() {
                   className="bg-[var(--accent)] h-1.5 rounded-full transition-all"
                   style={{
                     width: items.length > 0 ? `${(ratedCount / items.length) * 100}%` : "0%",
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <p className="text-[var(--muted)] text-xs">Viewed</p>
+              <p className="font-semibold">
+                {viewedCount}/{items.length}
+              </p>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                <div
+                  className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                  style={{
+                    width: items.length > 0 ? `${(viewedCount / items.length) * 100}%` : "0%",
                   }}
                 />
               </div>

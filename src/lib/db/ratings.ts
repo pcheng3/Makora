@@ -33,11 +33,14 @@ export function getUnprocessedRatings(sessionId?: number) {
     )
   )`;
 
+  const commentsSubquery = `(SELECT GROUP_CONCAT(c.text, '\n') FROM comments c WHERE c.review_item_id = r.review_item_id ORDER BY c.created_at ASC)`;
+
   if (sessionId !== undefined) {
     return db
       .prepare(
         `SELECT r.*, ri.category, ri.severity, ri.title as item_title, ri.description as item_description,
-                ri.code_snippet as item_code_snippet, ri.file_path as item_file_path, ri.proposed_fix as item_proposed_fix
+                ri.code_snippet as item_code_snippet, ri.file_path as item_file_path, ri.proposed_fix as item_proposed_fix,
+                ${commentsSubquery} as all_comments
          FROM ratings r
          JOIN review_items ri ON r.review_item_id = ri.id
          WHERE ${unprocessedCondition}
@@ -48,7 +51,8 @@ export function getUnprocessedRatings(sessionId?: number) {
   return db
     .prepare(
       `SELECT r.*, ri.category, ri.severity, ri.title as item_title, ri.description as item_description,
-              ri.code_snippet as item_code_snippet, ri.file_path as item_file_path, ri.proposed_fix as item_proposed_fix
+              ri.code_snippet as item_code_snippet, ri.file_path as item_file_path, ri.proposed_fix as item_proposed_fix,
+              ${commentsSubquery} as all_comments
        FROM ratings r
        JOIN review_items ri ON r.review_item_id = ri.id
        WHERE ${unprocessedCondition}`
@@ -69,16 +73,19 @@ export function getFewShotExamples(
         ? `CASE WHEN ${extLikes.map(() => "LOWER(ri.file_path) LIKE ?").join(" OR ")} THEN 0 ELSE 1 END`
         : "0";
 
+    const commentsSubquery = `(SELECT GROUP_CONCAT(c.text, '\n') FROM comments c WHERE c.review_item_id = rat.review_item_id ORDER BY c.created_at ASC)`;
+    const hasCommentsCheck = `(EXISTS(SELECT 1 FROM comments c WHERE c.review_item_id = rat.review_item_id))`;
+
     const sql = `
       SELECT
-        rat.rating, rat.comment,
+        rat.rating, ${commentsSubquery} as comment,
         ri.category, ri.severity, ri.title,
         ri.file_path, ri.code_snippet, ri.description, ri.proposed_fix
       FROM ratings rat
       JOIN review_items ri ON rat.review_item_id = ri.id
       WHERE rat.rating = ?
       ORDER BY
-        CASE WHEN rat.comment IS NOT NULL AND rat.comment != '' THEN 0 ELSE 1 END,
+        CASE WHEN ${hasCommentsCheck} THEN 0 ELSE 1 END,
         CASE WHEN ri.category != 'positive' THEN 0 ELSE 1 END,
         ${extCase},
         rat.created_at DESC
