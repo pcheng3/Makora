@@ -29,6 +29,7 @@ export interface ReviewItem {
   description: string;
   proposed_fix: string | null;
   raw_json: string | null;
+  viewed: boolean;
   created_at: string;
 }
 
@@ -54,6 +55,13 @@ export interface Rule {
   file_extensions: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Comment {
+  id: number;
+  review_item_id: number;
+  text: string;
+  created_at: string;
 }
 
 export interface FewShotExample {
@@ -82,6 +90,7 @@ export interface GuidanceFile {
 
 export interface ReviewItemWithRating extends ReviewItem {
   rating: Rating | null;
+  comments: Comment[];
 }
 
 export interface SessionWithStats extends Session {

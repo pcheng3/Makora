@@ -1,5 +1,6 @@
 import { getDb } from "./connection";
-import type { ReviewItem, ReviewItemWithRating, AIReviewItem } from "../types";
+import type { ReviewItem, ReviewItemWithRating, AIReviewItem, Comment } from "../types";
+import { getSessionComments } from "./comments";
 
 export function insertReviewItem(
   sessionId: number,
@@ -43,6 +44,8 @@ export function getSessionItems(
        ORDER BY ri.id ASC`
     )
     .all(sessionId) as Record<string, unknown>[];
+  const commentsByItem = getSessionComments(sessionId);
+
   return rows.map((row) => ({
       id: row.id as number,
       session_id: row.session_id as number,
@@ -57,6 +60,7 @@ export function getSessionItems(
       description: row.description as string,
       proposed_fix: row.proposed_fix as string | null,
       raw_json: row.raw_json as string | null,
+      viewed: !!(row.viewed as number),
       created_at: row.created_at as string,
       rating: row.rating_id
         ? {
@@ -67,5 +71,11 @@ export function getSessionItems(
             created_at: row.rating_created_at as string,
           }
         : null,
+      comments: commentsByItem.get(row.id as number) || [],
     }));
+}
+
+export function setItemViewed(itemId: number, viewed: boolean): void {
+  const db = getDb();
+  db.prepare("UPDATE review_items SET viewed = ? WHERE id = ?").run(viewed ? 1 : 0, itemId);
 }

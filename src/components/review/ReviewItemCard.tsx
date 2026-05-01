@@ -9,10 +9,13 @@ import type { ReviewItemWithRating } from "@/lib/types";
 
 interface ReviewItemCardProps {
   item: ReviewItemWithRating;
-  onRate: (itemId: number, rating: 1 | -1, comment?: string) => void;
+  onRate: (itemId: number, rating: 1 | -1) => void;
+  onAddComment: (itemId: number, text: string) => void;
+  onDeleteComment: (itemId: number, commentId: number) => void;
+  onToggleViewed: (itemId: number, viewed: boolean) => void;
 }
 
-export default function ReviewItemCard({ item, onRate }: ReviewItemCardProps) {
+export default function ReviewItemCard({ item, onRate, onAddComment, onDeleteComment, onToggleViewed }: ReviewItemCardProps) {
   const [showFix, setShowFix] = useState(false);
 
   const ratingValue = item.rating?.rating ?? null;
@@ -34,7 +37,7 @@ export default function ReviewItemCard({ item, onRate }: ReviewItemCardProps) {
 
   return (
     <div
-      className={`bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg p-4 mb-3 border-l-4 ${borderColor}`}
+      className={`bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg p-4 mb-3 border-l-4 ${borderColor} transition-opacity ${item.viewed ? "opacity-60" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -57,12 +60,35 @@ export default function ReviewItemCard({ item, onRate }: ReviewItemCardProps) {
           )}
         </div>
 
-        <RatingControls
+        <div className="flex items-center gap-4 shrink-0">
+          <label
+            className={`flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-full border transition-colors ${
+              item.viewed
+                ? "border-emerald-400/60 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-900/20"
+                : "border-[var(--card-border)] hover:border-gray-400 dark:hover:border-gray-500"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={item.viewed}
+              onChange={(e) => onToggleViewed(item.id, e.target.checked)}
+              className="w-3.5 h-3.5 rounded-sm border-gray-300 text-emerald-600 focus:ring-emerald-500/50 cursor-pointer"
+            />
+            <span className={`text-xs font-medium ${
+              item.viewed
+                ? "text-emerald-700 dark:text-emerald-400"
+                : "text-[var(--muted)]"
+            }`}>Viewed</span>
+          </label>
+          <RatingControls
           reviewItemId={item.id}
           currentRating={ratingValue as 1 | -1 | null}
-          currentComment={item.rating?.comment}
-          onRate={(rating, comment) => onRate(item.id, rating, comment)}
+          comments={item.comments}
+          onRate={(rating) => onRate(item.id, rating)}
+          onAddComment={(text) => onAddComment(item.id, text)}
+          onDeleteComment={(commentId) => onDeleteComment(item.id, commentId)}
         />
+        </div>
       </div>
 
       {item.code_snippet && (

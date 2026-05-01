@@ -11,6 +11,7 @@ interface RatingWithItem {
   review_item_id: number;
   rating: number;
   comment: string | null;
+  all_comments: string | null;
   item_title: string;
   item_description: string;
   item_code_snippet: string | null;
@@ -99,7 +100,7 @@ async function synthesizeRules(
     description: r.item_description,
     code_snippet: r.item_code_snippet,
     file_path: r.item_file_path,
-    user_comment: r.comment,
+    user_comment: r.all_comments || r.comment,
     severity: r.severity,
   }));
 
