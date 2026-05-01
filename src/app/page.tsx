@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Play, Loader2, FolderOpen, Clock, ShieldAlert } from "lucide-react";
+import { GitBranch, Play, Loader2, FolderOpen, Clock, ShieldAlert, ChevronDown, ChevronRight, Save, RotateCcw } from "lucide-react";
 import type { SessionWithStats } from "@/lib/types";
 
 export default function HomePage() {
@@ -19,13 +19,23 @@ export default function HomePage() {
   const [savedRepos, setSavedRepos] = useState<string[]>([]);
   const [remoteUrl, setRemoteUrl] = useState("");
   const [showItarModal, setShowItarModal] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [basePrompt, setBasePrompt] = useState("");
+  const [defaultPrompt, setDefaultPrompt] = useState("");
+  const [promptDirty, setPromptDirty] = useState(false);
+  const [promptSaving, setPromptSaving] = useState(false);
+  const [promptSaved, setPromptSaved] = useState(false);
 
   useEffect(() => {
-    fetch("/api/reviews?limit=5")
-      .then((r) => r.json())
-      .then((data) => {
-        setRecentSessions(data.sessions || []);
-        setSavedRepos(data.repos || []);
+    Promise.all([
+      fetch("/api/reviews?limit=5").then((r) => r.json()),
+      fetch("/api/settings/custom-prompt").then((r) => r.json()),
+    ])
+      .then(([reviewData, promptData]) => {
+        setRecentSessions(reviewData.sessions || []);
+        setSavedRepos(reviewData.repos || []);
+        setDefaultPrompt(promptData.defaultPrompt || "");
+        setBasePrompt(promptData.prompt || promptData.defaultPrompt || "");
       })
       .catch(() => {});
   }, []);
@@ -64,14 +74,42 @@ export default function HomePage() {
     }
   };
 
+  const handleSavePrompt = async () => {
+    setPromptSaving(true);
+    try {
+      await fetch("/api/settings/custom-prompt", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: basePrompt }),
+      });
+      setPromptDirty(false);
+      setPromptSaved(true);
+      setTimeout(() => setPromptSaved(false), 2000);
+    } finally {
+      setPromptSaving(false);
+    }
+  };
+
+  const handleRestoreDefault = async () => {
+    setBasePrompt(defaultPrompt);
+    setPromptDirty(false);
+    await fetch("/api/settings/custom-prompt", { method: "DELETE" });
+  };
+
   const doStartReview = async () => {
     setLoading(true);
     setError("");
     try {
+      const isCustom = basePrompt !== defaultPrompt;
       const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoPath, branch, baseBranch }),
+        body: JSON.stringify({
+          repoPath,
+          branch,
+          baseBranch,
+          ...(isCustom ? { customBasePrompt: basePrompt } : {}),
+        }),
       });
       const data = await res.json();
       if (data.error) {
@@ -199,6 +237,61 @@ export default function HomePage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="border border-[var(--card-border)] rounded-md overflow-hidden">
+              <button
+                onClick={() => setPromptExpanded(!promptExpanded)}
+                className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  {promptExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                  System Prompt
+                  {basePrompt !== defaultPrompt && (
+                    <span className="text-xs text-[var(--accent)]">(customized)</span>
+                  )}
+                </span>
+              </button>
+
+              {promptExpanded && (
+                <div className="border-t border-[var(--card-border)] p-3 space-y-2">
+                  <p className="text-xs text-[var(--muted)]">
+                    Edit the base instructions for the reviewer. Learned rules, examples, and guidance files are appended automatically.
+                  </p>
+                  <textarea
+                    value={basePrompt}
+                    onChange={(e) => {
+                      setBasePrompt(e.target.value);
+                      setPromptDirty(true);
+                      setPromptSaved(false);
+                    }}
+                    rows={12}
+                    className="w-full px-3 py-2 text-xs font-mono border rounded-md bg-[var(--card-bg)] border-[var(--card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 resize-y"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSavePrompt}
+                      disabled={!promptDirty || promptSaving}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50 cursor-pointer"
+                    >
+                      <Save className="w-3 h-3" />
+                      {promptSaving ? "Saving..." : promptSaved ? "Saved!" : "Save"}
+                    </button>
+                    <button
+                      onClick={handleRestoreDefault}
+                      disabled={basePrompt === defaultPrompt}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs border rounded-md border-[var(--card-border)] hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Restore Default
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button

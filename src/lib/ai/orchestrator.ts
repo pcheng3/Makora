@@ -53,7 +53,7 @@ function chunkFiles(files: string[]): string[][] {
   return chunks;
 }
 
-export async function runReview(sessionId: number, repoPath: string, branch: string, baseBranch: string, providerName: string) {
+export async function runReview(sessionId: number, repoPath: string, branch: string, baseBranch: string, providerName: string, customBasePrompt?: string) {
   const controller = new AbortController();
   activeReviews.set(sessionId, controller);
 
@@ -93,7 +93,7 @@ export async function runReview(sessionId: number, repoPath: string, branch: str
     const rules = getRelevantRules(allExtensions);
     const examples = getFewShotExamples(allExtensions);
     const guidance = getGuidanceContents();
-    const systemPrompt = buildSystemPrompt(rules, guidance, examples);
+    const systemPrompt = buildSystemPrompt(rules, guidance, examples, customBasePrompt);
 
     if (rules.length > 0) {
       incrementTimesApplied(rules.map((r) => r.id));

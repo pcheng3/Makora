@@ -5,7 +5,7 @@ import { runReview } from "@/lib/ai/orchestrator";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { repoPath, branch, baseBranch, provider } = body;
+    const { repoPath, branch, baseBranch, provider, customBasePrompt } = body;
 
     if (!repoPath || !branch || !baseBranch) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Fire and forget — client will connect to SSE stream
-    runReview(sessionId, repoPath, branch, baseBranch, provider || "claude").catch(
+    runReview(sessionId, repoPath, branch, baseBranch, provider || "claude", customBasePrompt || undefined).catch(
       (err) => console.error("Review failed:", err)
     );
 

@@ -1,13 +1,6 @@
 import type { Rule, FewShotExample } from "../types";
 
-export function buildSystemPrompt(
-  rules: Rule[],
-  guidanceContents: string[],
-  fewShotExamples?: FewShotExample[]
-): string {
-  const sections: string[] = [];
-
-  sections.push(`You are an expert code reviewer. You have tool access to explore the repository — use git diff, git show, and Read to examine changes and their surrounding context.
+export const DEFAULT_BASE_INSTRUCTIONS = `You are an expert code reviewer. You have tool access to explore the repository — use git diff, git show, and Read to examine changes and their surrounding context.
 
 ## How to Review
 1. Start with \`git diff <baseBranch>...<branch> --stat\` to see what files changed
@@ -36,7 +29,17 @@ export function buildSystemPrompt(
 - For each issue, explain WHY it's a problem, not just WHAT is wrong.
 - Group related findings into a single item when they share a root cause.
 - Include positive findings (category: "positive") for particularly good patterns or improvements.
-- Include test suggestions (category: "test_suggestion") for areas that should be tested.`);
+- Include test suggestions (category: "test_suggestion") for areas that should be tested.`;
+
+export function buildSystemPrompt(
+  rules: Rule[],
+  guidanceContents: string[],
+  fewShotExamples?: FewShotExample[],
+  customBaseInstructions?: string
+): string {
+  const sections: string[] = [];
+
+  sections.push(customBaseInstructions ?? DEFAULT_BASE_INSTRUCTIONS);
 
   const doRules = rules.filter((r) => r.rule_type === "do" && r.enabled);
   const avoidRules = rules.filter(

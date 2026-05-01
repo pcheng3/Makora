@@ -16,6 +16,19 @@ export function setSetting(key: string, value: string) {
   );
 }
 
+export function getCustomBasePrompt(): string | null {
+  return getSetting("custom_base_prompt");
+}
+
+export function setCustomBasePrompt(value: string) {
+  setSetting("custom_base_prompt", value);
+}
+
+export function clearCustomBasePrompt() {
+  const db = getDb();
+  db.prepare("DELETE FROM settings WHERE key = ?").run("custom_base_prompt");
+}
+
 export function getSkipExtensions(): string[] {
   const raw = getSetting("skip_extensions");
   if (!raw) return [".meta", ".prefab", ".asset", ".unity", ".mat", ".lighting"];
